@@ -4,6 +4,8 @@ namespace data;
 
 use App\TwilightImperium\Planet;
 use App\TwilightImperium\SpaceStation;
+use App\TwilightImperium\Tile;
+use App\TwilightImperium\TileType;
 use App\Testing\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -35,6 +37,45 @@ class FactionDataTest extends TestCase
         }
         $this->assertNotEmpty($factionData['name']);
         $this->assertNotEmpty($factionData['wiki']);
+        $this->assertArrayHasKey('minor_faction_eligible', $factionData);
+        $this->assertIsBool($factionData['minor_faction_eligible']);
+    }
+
+    #[Test]
+    #[DataProvider('allJsonFactions')]
+    public function eachEligibleMinorFactionHasAPlanetaryHomeSystem($key, $factionData): void
+    {
+        if (! $factionData['minor_faction_eligible']) {
+            $this->addToAssertionCount(1);
+            return;
+        }
+
+        $tiles = Tile::all();
+        $homeSystem = (string) $factionData['homesystem'];
+
+        $this->assertArrayHasKey($homeSystem, $tiles, $key);
+        $this->assertSame(TileType::GREEN, $tiles[$homeSystem]->tileType, $key);
+        $this->assertNotEmpty($tiles[$homeSystem]->planets, $key);
+    }
+
+    #[Test]
+    public function onlyDocumentedExceptionsAreIneligibleMinorFactions(): void
+    {
+        $ineligibleFactions = array_keys(array_filter(
+            self::getJsonData(),
+            static fn (array $factionData): bool => ! $factionData['minor_faction_eligible'],
+        ));
+        sort($ineligibleFactions);
+
+        $expected = [
+            'Ghoti Wayfarers',
+            'The Council Keleres',
+            'The Crimson Rebellion',
+            'The Ghosts of Creuss',
+        ];
+        sort($expected);
+
+        $this->assertSame($expected, $ineligibleFactions);
     }
 
 

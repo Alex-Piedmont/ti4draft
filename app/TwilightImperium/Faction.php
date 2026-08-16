@@ -21,17 +21,23 @@ class Faction
         public readonly string $homeSystemTileNumber,
         public readonly string $linkToWiki,
         public readonly Edition $edition,
+        public readonly bool $minorFactionEligible,
     ) {
     }
 
     public static function fromJson($data)
     {
+        if (! array_key_exists('minor_faction_eligible', $data) || ! is_bool($data['minor_faction_eligible'])) {
+            throw new \TypeError('Faction minor_faction_eligible must be an explicit boolean');
+        }
+
         return new self(
             $data['name'],
             $data['id'],
             $data['homesystem'],
             $data['wiki'],
             self::editionFromFactionJson($data['set']),
+            $data['minor_faction_eligible'],
         );
     }
 
