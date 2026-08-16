@@ -32,6 +32,10 @@ As such there's no build-system, or compiling required except for the steps desc
 
 To make this app as lean and mean (and easy to understand for anyone) as possible, external dependencies, both in the front- and backend should be kept to an absolute minimum.
 
+### Testing
+
+Run the PHP suite with `docker compose exec app composer phpunit`. The Minor Factions browser test uses Playwright as a development-only dependency: run `npm install`, `npx playwright install chromium`, and then `npm run test:e2e` while the Docker app is available at `http://localhost:8080` (or set `E2E_BASE_URL`).
+
 ### Understanding the App flow
 
 1. Players come in on index.php and choose their options. 
