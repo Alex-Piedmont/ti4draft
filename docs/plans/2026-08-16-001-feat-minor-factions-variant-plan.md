@@ -5,7 +5,7 @@ type: feat
 source: Direct request
 depth: Standard
 test-spec: docs/plans/2026-08-16-001-feat-minor-factions-variant-test-spec.md
-status: Approved
+status: Completed
 ---
 
 # Plan: Minor Factions Variant
@@ -148,7 +148,7 @@ Acceptance: R2, R11
 ## Atomic Units
 
 ### AU-1: Model minor-faction eligibility
-- [ ] **Goal:** Every faction declares whether it can supply a standard planetary minor home system.
+- [x] **Goal:** Every faction declares whether it can supply a standard planetary minor home system.
 **Requirements:** R4
 **Dependencies:** None
 **Files:**
@@ -170,7 +170,7 @@ Acceptance: R2, R11
 - `docker compose exec app vendor/bin/phpunit data/FactionDataTest.php app/TwilightImperium/FactionTest.php` -- exits 0
 
 ### AU-2: Persist and validate the mode setting
-- [ ] **Goal:** Minor Factions configuration is represented in settings and remains backward compatible with existing draft JSON.
+- [x] **Goal:** Minor Factions configuration is represented in settings and remains backward compatible with existing draft JSON.
 **Requirements:** R1, R8, R9, R10
 **Dependencies:** AU-1
 **Files:**
@@ -192,7 +192,7 @@ Acceptance: R2, R11
 - `docker compose exec app vendor/bin/phpunit app/Draft/SettingsTest.php` -- exits 0
 
 ### AU-3: Add creation and configuration controls
-- [ ] **Goal:** Draft creators can enable Minor Factions and understand its faction-pool requirement.
+- [x] **Goal:** Draft creators can enable Minor Factions and understand its faction-pool requirement.
 **Requirements:** R1, R8, R9
 **Dependencies:** AU-2
 **Files:**
@@ -220,7 +220,7 @@ Acceptance: R2, R11
 - `node --test tests/js/minor-factions.test.cjs` -- exits 0
 
 ### AU-4: Guarantee an eligible reserve in the persisted faction pool
-- [ ] **Goal:** Every generated Minor Factions draft pool can leave one eligible minor faction per player under the worst valid player selections.
+- [x] **Goal:** Every generated Minor Factions draft pool can leave one eligible minor faction per player under the worst valid player selections.
 **Requirements:** R2, R4, R7, R8
 **Dependencies:** AU-1, AU-2
 **Files:**
@@ -244,7 +244,7 @@ Acceptance: R2, R11
 - `docker compose exec app vendor/bin/phpunit app/Draft/Commands/GenerateFactionPoolTest.php` -- exits 0
 
 ### AU-5: Reserve the equidistant blue slot
-- [ ] **Goal:** Minor Factions slices resolve with one fewer blue system and a reserved equidistant slot at tile index `4`.
+- [x] **Goal:** Minor Factions slices resolve with one fewer blue system and a reserved equidistant slot at tile index `4`.
 **Requirements:** R5, R6, R10
 **Dependencies:** AU-2
 **Files:**
@@ -269,7 +269,7 @@ Acceptance: R2, R11
 - `docker compose exec app vendor/bin/phpunit app/Draft/Commands/GenerateSlicePoolTest.php app/Draft/SliceTest.php` -- exits 0
 
 ### AU-6: Derive deterministic minor assignments
-- [ ] **Goal:** Completed drafts expose one deterministic eligible leftover faction per speaker position without storing duplicate state.
+- [x] **Goal:** Completed drafts expose one deterministic eligible leftover faction per speaker position without storing duplicate state.
 **Requirements:** R2, R3, R4, R5, R7, R9, R10
 **Dependencies:** AU-1, AU-4, AU-5
 **Files:**
@@ -300,7 +300,7 @@ Acceptance: R2, R11
 - `docker compose exec app vendor/bin/phpunit app/Draft/MinorFactionAssignmentsTest.php app/Draft/DraftTest.php` -- exits 0
 
 ### AU-7: Enforce faction-pick membership
-- [ ] **Goal:** The server rejects faction selections that were not present in the draft's persisted faction pool.
+- [x] **Goal:** The server rejects faction selections that were not present in the draft's persisted faction pool.
 **Requirements:** R2, R11
 **Dependencies:** None
 **Files:**
@@ -320,7 +320,7 @@ Acceptance: R2, R11
 - `docker compose exec app vendor/bin/phpunit app/Draft/Commands/PlayerPickTest.php app/Http/RequestHandlers/HandlePickRequestTest.php` -- exits 0
 
 ### AU-8: Present assignments and replace map tiles
-- [ ] **Goal:** Draft pages and all map exports consistently show assigned minor home systems in the equidistant slots.
+- [x] **Goal:** Draft pages and all map exports consistently show assigned minor home systems in the equidistant slots.
 **Requirements:** R5, R6, R9, R10
 **Dependencies:** AU-3, AU-5, AU-6
 **Files:**
@@ -341,7 +341,7 @@ Acceptance: R2, R11
 - Before assignments resolve, display a neutral Minor Faction placeholder and emit `0` at every reserved TTS coordinate; preserve TTS token count and coordinate ordering while excluding the discarded blue tile.
 - After assignments resolve, label each system with the faction name and home-system tile ID.
 - For an `invalid` server resolution, display the server-provided configuration error, keep reserved positions as `0`, and never fabricate or partially substitute assignments.
-- Use a dependency-free `node:vm` integration fixture to execute `generate-map.js` and `draft.js` against controlled draft payloads; do not add a browser framework solely for this feature.
+- Use a dependency-free `node:vm` integration fixture for fast shipped-script coverage, plus a development-only Playwright test for the real UI/server completion and undo paths required by the final integration gate.
 - IF mode is disabled: bypass all new substitution and presentation paths.
 **Test Scenarios:**
 - When a completed 3–8 player Minor Factions draft is rendered: each position receives its assignment at tile index `4`.
@@ -360,6 +360,7 @@ Acceptance: R2, R11
 - `docker compose exec app composer cs:check` -- exits 0
 - `node --test tests/js/minor-factions.test.cjs` -- exits 0
 - `node --test tests/js/minor-factions-integration.test.cjs` -- exits 0
+- `npm run test:e2e` -- exits 0 against the running local application
 
 ## Dependency Graph
 
