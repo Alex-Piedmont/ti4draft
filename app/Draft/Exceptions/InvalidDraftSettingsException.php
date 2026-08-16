@@ -79,6 +79,11 @@ class InvalidDraftSettingsException extends \Exception
         return new self("Custom slices error, either the formatting is incorrect or slices don't have enough tiles (each should have 5)");
     }
 
+    public static function minorFactionEquidistantMustBeBlue(): self
+    {
+        return new self('Minor Factions custom slices require a blue system at equidistant index 4');
+    }
+
     public static function cannotGenerateSlices(): self {
         return new self('Selection contains no valid slices. This happens occasionally to valid configurations but it probably means that the parameters are impossible.');
     }

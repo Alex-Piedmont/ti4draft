@@ -14,6 +14,7 @@ use App\TwilightImperium\Edition;
 use App\TwilightImperium\Tile;
 use App\TwilightImperium\TileType;
 use App\TwilightImperium\Wormhole;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\DataProviderExternal;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -283,6 +284,183 @@ class GenerateSlicePoolTest extends TestCase
 
         $this->expectException(InvalidDraftSettingsException::class);
         $this->expectExceptionMessage(InvalidDraftSettingsException::cannotGenerateSlices()->getMessage());
+
+        $generator->handle();
+    }
+
+    #[Test]
+    public function minorFactionsGeneratedSlicesReserveABlueEquidistantTile(): void
+    {
+        $settings = DraftSettingsFactory::make([
+            'numberOfPlayers' => 6,
+            'numberOfSlices' => 6,
+            'minorFactionsMode' => true,
+            'minimumOptimalInfluence' => 0,
+            'minimumOptimalResources' => 0,
+            'minimumOptimalTotal' => 0,
+            'maximumOptimalTotal' => 20,
+            'minimumLegendaryPlanets' => 0,
+            'minimumTwoAlphaBetaWormholes' => false,
+            'maxOneWormholePerSlice' => false,
+            'seed' => 321,
+        ]);
+
+        $slices = (new GenerateSlicePool($settings))->handle();
+
+        foreach ($slices as $slice) {
+            $this->assertTrue($slice->minorFactionsMode);
+            $this->assertSame(TileType::BLUE, $slice->tiles[Slice::EQUIDISTANT_INDEX]->tileType);
+            $this->assertCount(4, $slice->effectiveTiles());
+            $this->assertCount(5, $slice->tileIds());
+        }
+    }
+
+    #[Test]
+    public function minorFactionsCustomSlicesRequireABlueEquidistantTile(): void
+    {
+        $generator = new GenerateSlicePool(DraftSettingsFactory::make([
+            'numberOfSlices' => 1,
+            'customSlices' => [['64', '33', '42', '59', '67']],
+            'minorFactionsMode' => true,
+        ]));
+
+        $this->expectException(InvalidDraftSettingsException::class);
+        $this->expectExceptionMessage(
+            InvalidDraftSettingsException::minorFactionEquidistantMustBeBlue()->getMessage(),
+        );
+
+        $generator->handle();
+    }
+
+    #[Test]
+    public function minorFactionsCustomSlicesPreserveFiveTilesAndReserveTheBlueTile(): void
+    {
+        $ids = ['64', '33', '42', '67', '59'];
+        $slice = (new GenerateSlicePool(DraftSettingsFactory::make([
+            'numberOfSlices' => 1,
+            'customSlices' => [$ids],
+            'minorFactionsMode' => true,
+        ])))->handle()[0];
+
+        $this->assertSame($ids, $slice->tileIds());
+        $this->assertCount(4, $slice->effectiveTiles());
+        $this->assertSame(TileType::BLUE, $slice->tiles[Slice::EQUIDISTANT_INDEX]->tileType);
+    }
+
+    public static function supportedPlayerCounts(): iterable
+    {
+        foreach (range(3, 8) as $playerCount) {
+            yield $playerCount . ' players' => [$playerCount];
+        }
+    }
+
+    #[Test]
+    #[DataProvider('supportedPlayerCounts')]
+    public function minorFactionsReservesIndexFourForEverySupportedPlayerCount(int $playerCount): void
+    {
+        $settings = DraftSettingsFactory::make([
+            'numberOfPlayers' => $playerCount,
+            'numberOfSlices' => $playerCount,
+            'minorFactionsMode' => true,
+            'minimumOptimalInfluence' => 0,
+            'minimumOptimalResources' => 0,
+            'minimumOptimalTotal' => 0,
+            'maximumOptimalTotal' => 100,
+            'minimumLegendaryPlanets' => 0,
+            'minimumTwoAlphaBetaWormholes' => false,
+            'maxOneWormholePerSlice' => false,
+            'seed' => 9000 + $playerCount,
+        ]);
+
+        $slices = (new GenerateSlicePool($settings))->handle();
+
+        $this->assertCount($playerCount, $slices);
+        foreach ($slices as $slice) {
+            $this->assertSame(TileType::BLUE, $slice->tiles[4]->tileType);
+            $this->assertCount(5, $slice->tileIds());
+            $this->assertCount(4, $slice->effectiveTiles());
+        }
+    }
+
+    #[Test]
+    public function minorFactionsGenerationIsDeterministicIncludingReservedTileOrder(): void
+    {
+        $properties = [
+            'numberOfPlayers' => 6,
+            'numberOfSlices' => 6,
+            'minorFactionsMode' => true,
+            'minimumOptimalInfluence' => 0,
+            'minimumOptimalResources' => 0,
+            'minimumOptimalTotal' => 0,
+            'maximumOptimalTotal' => 100,
+            'minimumLegendaryPlanets' => 0,
+            'minimumTwoAlphaBetaWormholes' => false,
+            'maxOneWormholePerSlice' => false,
+            'seed' => 654321,
+        ];
+
+        $first = (new GenerateSlicePool(DraftSettingsFactory::make($properties)))->handle();
+        $second = (new GenerateSlicePool(DraftSettingsFactory::make($properties)))->handle();
+
+        $this->assertSame(
+            array_map(static fn (Slice $slice): array => $slice->tileIds(), $first),
+            array_map(static fn (Slice $slice): array => $slice->tileIds(), $second),
+        );
+        foreach ($first as $slice) {
+            $this->assertSame(TileType::BLUE, $slice->tiles[Slice::EQUIDISTANT_INDEX]->tileType);
+        }
+    }
+
+    #[Test]
+    public function minorFactionsGlobalRequirementsAreMetByEffectiveTilesOnly(): void
+    {
+        $settings = DraftSettingsFactory::make([
+            'numberOfPlayers' => 6,
+            'numberOfSlices' => 6,
+            'minorFactionsMode' => true,
+            'minimumOptimalInfluence' => 0,
+            'minimumOptimalResources' => 0,
+            'minimumOptimalTotal' => 0,
+            'maximumOptimalTotal' => 100,
+            'minimumLegendaryPlanets' => 2,
+            'minimumTwoAlphaBetaWormholes' => true,
+            'maxOneWormholePerSlice' => false,
+            'seed' => 4242,
+        ]);
+
+        $slices = (new GenerateSlicePool($settings))->handle();
+        $effectiveTiles = array_merge(...array_map(
+            static fn (Slice $slice): array => $slice->effectiveTiles(),
+            $slices,
+        ));
+
+        $this->assertGreaterThanOrEqual(2, count(array_filter(
+            $effectiveTiles,
+            static fn (Tile $tile): bool => $tile->hasWormhole(Wormhole::ALPHA),
+        )));
+        $this->assertGreaterThanOrEqual(2, count(array_filter(
+            $effectiveTiles,
+            static fn (Tile $tile): bool => $tile->hasWormhole(Wormhole::BETA),
+        )));
+        $this->assertGreaterThanOrEqual(2, count(array_filter(
+            $effectiveTiles,
+            static fn (Tile $tile): bool => $tile->hasLegendaryPlanet(),
+        )));
+    }
+
+    #[Test]
+    public function minorFactionsRejectsANonstandardEquidistantTile(): void
+    {
+        $generator = new GenerateSlicePool(DraftSettingsFactory::make([
+            'numberOfSlices' => 1,
+            'customSlices' => [['64', '33', '42', '67', '1']],
+            'minorFactionsMode' => true,
+        ]));
+
+        $this->expectException(InvalidDraftSettingsException::class);
+        $this->expectExceptionMessage(
+            InvalidDraftSettingsException::minorFactionEquidistantMustBeBlue()->getMessage(),
+        );
 
         $generator->handle();
     }

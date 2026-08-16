@@ -6,10 +6,13 @@ namespace App\Draft;
 
 use App\TwilightImperium\TechSpecialties;
 use App\TwilightImperium\Tile;
+use App\TwilightImperium\TileType;
 use App\TwilightImperium\Wormhole;
 
 class Slice
 {
+    public const EQUIDISTANT_INDEX = 4;
+
     protected const MAX_ARRANGEMENT_TRIES = 100;
 
     /**
@@ -35,13 +38,28 @@ class Slice
      */
     function __construct(
         public array $tiles,
+        public readonly bool $minorFactionsMode = false,
     ) {
         // if the slice doesn't have 5 tiles in it, something went awry
         if (count($this->tiles) != 5) {
             throw new \Exception('Slice does not have enough tiles');
         }
 
-        foreach ($tiles as $tile) {
+        $this->refreshSummary();
+    }
+
+    private function refreshSummary(): void
+    {
+        $this->wormholes = [];
+        $this->specialties = [];
+        $this->legendaryPlanets = [];
+        $this->totalInfluence = 0;
+        $this->totalResources = 0;
+        $this->optimalResources = 0;
+        $this->optimalInfluence = 0;
+        $this->optimalTotal = 0;
+
+        foreach ($this->effectiveTiles() as $tile) {
             $this->totalInfluence += $tile->totalInfluence;
             $this->totalResources += $tile->totalResources;
             $this->optimalInfluence += $tile->optimalInfluence;
@@ -63,6 +81,7 @@ class Slice
 
     public function toJson(): array
     {
+        $this->refreshSummary();
         // @refactor so that tile ids just get imported from json and then populated from those tiles
         return [
             'tiles' => array_map(fn(Tile $tile) => $tile->id, $this->tiles),
@@ -70,7 +89,7 @@ class Slice
             'wormholes' => $this->wormholes,
             // @todo: refactor to has_legendary_planets, but don't break backwards compatibility!
             // or maybe just get rid altogether, since you can just check legendaries/legendary_planets
-            'has_legendaries' => Tile::countSpecials($this->tiles)['legendary'] > 0,
+            'has_legendaries' => Tile::countSpecials($this->effectiveTiles())['legendary'] > 0,
             // @todo: refactor to legendary_planets, but don't break backwards compatibility!
             'legendaries' => $this->legendaryPlanets,
             'total_influence' => $this->totalInfluence,
@@ -90,7 +109,8 @@ class Slice
         float $maximumOptimalTotal,
         bool $maxOneWormhole,
     ): bool {
-        $specialCount = Tile::countSpecials($this->tiles);
+        $this->refreshSummary();
+        $specialCount = Tile::countSpecials($this->effectiveTiles());
 
         // can't have 2 alpha, beta or legendary planets
         if ($specialCount['alpha'] > 1 || $specialCount['beta'] > 1 || $specialCount['legendary'] > 1) {
@@ -132,10 +152,12 @@ class Slice
             shuffle($this->tiles);
 
             if ($tries > self::MAX_ARRANGEMENT_TRIES) {
+                $this->refreshSummary();
                 return false;
             }
         }
 
+        $this->refreshSummary();
         return true;
     }
 
@@ -160,6 +182,10 @@ class Slice
     public function tileArrangementIsValid(): bool
     {
 
+        if ($this->minorFactionsMode && $this->tiles[self::EQUIDISTANT_INDEX]->tileType !== TileType::BLUE) {
+            return false;
+        }
+
         $neighbours = [[0, 1], [0, 3], [1, 2], [1, 3], [1, 4], [3, 4]];
 
         foreach ($neighbours as $neighbouringPair) {
@@ -180,13 +206,29 @@ class Slice
         return array_map(fn (Tile $t) => $t->id, $this->tiles);
     }
 
+    /** @return array<Tile> */
+    public function effectiveTiles(): array
+    {
+        if (! $this->minorFactionsMode) {
+            return $this->tiles;
+        }
+
+        return array_values(array_filter(
+            $this->tiles,
+            static fn (Tile $tile, int $index): bool => $index !== self::EQUIDISTANT_INDEX,
+            ARRAY_FILTER_USE_BOTH,
+        ));
+    }
+
     public function hasLegendary(): bool
     {
+        $this->refreshSummary();
         return count($this->legendaryPlanets) > 0;
     }
 
     public function hasWormhole(Wormhole $wormhole): bool
     {
+        $this->refreshSummary();
         return in_array($wormhole, $this->wormholes);
     }
 }

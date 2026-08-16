@@ -100,7 +100,7 @@ class GenerateSlicePool implements Command
         $this->gatheredTiles->shuffle();
         $tilePool = $this->gatheredTiles->slice($this->settings->numberOfSlices);
 
-        $tilePoolIsValid = $this->validateTileSelection($tilePool->allIds());
+        $tilePoolIsValid = $this->settings->minorFactionsMode || $this->validateTileSelection($tilePool->allIds());
 
         if (! $tilePoolIsValid) {
             return $this->attemptToGenerate($previousTries + 1);
@@ -134,7 +134,11 @@ class GenerateSlicePool implements Command
                 $this->tileData[$pool->lowTier[$i]],
                 $this->tileData[$pool->redTier[$i * 2]],
                 $this->tileData[$pool->redTier[($i * 2) + 1]],
-            ]);
+            ], $this->settings->minorFactionsMode);
+
+            if ($this->settings->minorFactionsMode && ! $slice->arrange($this->settings->seed)) {
+                return $this->makeSlicesFromPool($pool, $previousTries + 1);
+            }
 
             $sliceIsValid = $slice->validate(
                 $this->settings->minimumOptimalInfluence,
@@ -151,7 +155,7 @@ class GenerateSlicePool implements Command
                 return $this->makeSlicesFromPool($pool, $previousTries + 1);
             }
 
-            if(! $slice->arrange($this->settings->seed)) {
+            if(! $this->settings->minorFactionsMode && ! $slice->arrange($this->settings->seed)) {
                 unset($slice);
                 unset($slices);
 
@@ -159,6 +163,21 @@ class GenerateSlicePool implements Command
             }
 
             $slices[] = $slice;
+        }
+
+        if ($this->settings->minorFactionsMode) {
+            $effectiveTileIds = array_reduce(
+                $slices,
+                static fn (array $ids, Slice $slice): array => array_merge($ids, array_map(
+                    static fn (Tile $tile): string => $tile->id,
+                    $slice->effectiveTiles(),
+                )),
+                [],
+            );
+
+            if (! $this->validateTileSelection($effectiveTileIds)) {
+                return $this->makeSlicesFromPool($pool, $previousTries + 1);
+            }
         }
 
         return $slices;
@@ -216,7 +235,14 @@ class GenerateSlicePool implements Command
                 $tileData[] = $this->tileData[$tileId];
             }
 
-            return new Slice($tileData);
+            if (
+                $this->settings->minorFactionsMode &&
+                $tileData[Slice::EQUIDISTANT_INDEX]->tileType !== \App\TwilightImperium\TileType::BLUE
+            ) {
+                throw InvalidDraftSettingsException::minorFactionEquidistantMustBeBlue();
+            }
+
+            return new Slice($tileData, $this->settings->minorFactionsMode);
         }, $this->settings->customSlices);
     }
 

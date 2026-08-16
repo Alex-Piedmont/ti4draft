@@ -8,6 +8,7 @@ use App\Testing\Factories\PlanetFactory;
 use App\Testing\Factories\TileFactory;
 use App\Testing\TestCase;
 use App\TwilightImperium\Planet;
+use App\TwilightImperium\TileType;
 use App\TwilightImperium\Wormhole;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -321,5 +322,116 @@ class SliceTest extends TestCase
         );
 
         $this->assertTrue($valid);
+    }
+
+    #[Test]
+    public function minorFactionsExcludesTheEquidistantTileFromEffectiveValuesAndSpecials(): void
+    {
+        $reserved = TileFactory::make(
+            [PlanetFactory::make(['resources' => 9, 'influence' => 9, 'legendary' => 'Reserved'])],
+            [Wormhole::ALPHA],
+        );
+        $slice = new Slice([
+            TileFactory::make([PlanetFactory::make(['resources' => 2])]),
+            TileFactory::make(),
+            TileFactory::make(),
+            TileFactory::make(),
+            $reserved,
+        ], true);
+
+        $this->assertSame(4, Slice::EQUIDISTANT_INDEX);
+        $this->assertCount(4, $slice->effectiveTiles());
+        $this->assertSame(2, $slice->totalResources);
+        $this->assertFalse($slice->hasLegendary());
+        $this->assertFalse($slice->hasWormhole(Wormhole::ALPHA));
+        $this->assertFalse($slice->validate(0, 0, 3, 20, false));
+        $this->assertCount(5, $slice->tileIds());
+    }
+
+    #[Test]
+    public function minorFactionsArrangementPlacesABlueTileAtTheEquidistantIndex(): void
+    {
+        $tiles = array_map(fn () => TileFactory::make(), range(1, 5));
+        $tiles[0]->tileType = TileType::RED;
+        $tiles[1]->tileType = TileType::RED;
+        $slice = new Slice($tiles, true);
+
+        $this->assertTrue($slice->arrange(new Seed(123)));
+        $this->assertSame(TileType::BLUE, $slice->tiles[Slice::EQUIDISTANT_INDEX]->tileType);
+    }
+
+    #[Test]
+    public function reservedTileCannotSatisfyAnyMinimumValueConstraint(): void
+    {
+        $reserved = TileFactory::make([
+            PlanetFactory::make(['resources' => 10, 'influence' => 10]),
+        ]);
+        $slice = new Slice([
+            TileFactory::make(),
+            TileFactory::make(),
+            TileFactory::make(),
+            TileFactory::make(),
+            $reserved,
+        ], true);
+
+        $this->assertFalse($slice->validate(0, 1, 0, 100, false));
+        $this->assertFalse($slice->validate(1, 0, 0, 100, false));
+        $this->assertFalse($slice->validate(0, 0, 1, 100, false));
+    }
+
+    #[Test]
+    public function reservedSpecialsCannotCauseRetainedSliceLimitsToFail(): void
+    {
+        $retained = TileFactory::make(
+            [PlanetFactory::make([
+                'name' => 'Retained',
+                'resources' => 0,
+                'influence' => 0,
+                'legendary' => 'Retained',
+            ])],
+            [Wormhole::ALPHA],
+        );
+        $reserved = TileFactory::make(
+            [PlanetFactory::make(['resources' => 10, 'influence' => 10, 'legendary' => 'Reserved'])],
+            [Wormhole::ALPHA],
+        );
+        $slice = new Slice([
+            $retained,
+            TileFactory::make(),
+            TileFactory::make(),
+            TileFactory::make(),
+            $reserved,
+        ], true);
+
+        $this->assertTrue($slice->validate(0, 0, 0, 0, true));
+        $this->assertSame(['Retained'], array_map(
+            static fn (string $description): string => explode(':', $description, 2)[0],
+            $slice->legendaryPlanets,
+        ));
+        $this->assertSame([Wormhole::ALPHA], $slice->wormholes);
+    }
+
+    #[Test]
+    public function disabledModeKeepsTheFifthTileInAllExistingSliceCalculations(): void
+    {
+        $fifthTile = TileFactory::make(
+            [PlanetFactory::make(['resources' => 4, 'influence' => 2, 'legendary' => 'Included'])],
+            [Wormhole::BETA],
+        );
+        $slice = new Slice([
+            TileFactory::make(),
+            TileFactory::make(),
+            TileFactory::make(),
+            TileFactory::make(),
+            $fifthTile,
+        ], false);
+
+        $this->assertCount(5, $slice->effectiveTiles());
+        $this->assertSame(4, $slice->totalResources);
+        $this->assertSame(2, $slice->totalInfluence);
+        $this->assertTrue($slice->hasLegendary());
+        $this->assertTrue($slice->hasWormhole(Wormhole::BETA));
+        $this->assertTrue($slice->validate(0, 4, 4, 4, true));
+        $this->assertCount(5, $slice->toJson()['tiles']);
     }
 }

@@ -39,13 +39,15 @@ class Draft
             return $players;
         }, []);
 
+        $settings = Settings::fromJson($data['config']);
+
         return new self(
             $data['id'],
             $data['done'],
             $players,
-            Settings::fromJson($data['config']),
+            $settings,
             Secrets::fromJson($data['secrets']),
-            self::slicesFromJson($data['slices']),
+            self::slicesFromJson($data['slices'], $settings->minorFactionsMode),
             self::factionsFromJson($data['factions']),
             array_map(fn ($logData) => Pick::fromJson($logData), $data['draft']['log']),
             $data['draft']['current'] != null ? PlayerId::fromString($data['draft']['current']) : null,
@@ -55,17 +57,17 @@ class Draft
     /**
      * @return array<Slice>
      */
-    private static function slicesFromJson($slicesData): array
+    private static function slicesFromJson($slicesData, bool $minorFactionsMode): array
     {
         $allTiles = Tile::all();
 
-        return array_map(function (array $sliceData) use ($allTiles) {
+        return array_map(function (array $sliceData) use ($allTiles, $minorFactionsMode) {
             $tiles = array_map(
                 fn (string|int $tileId) => $allTiles[$tileId],
                 $sliceData['tiles'],
             );
 
-            return new Slice($tiles);
+            return new Slice($tiles, $minorFactionsMode);
         }, $slicesData);
     }
 
