@@ -26,4 +26,29 @@ class HandleViewFormRequestTest extends RequestHandlerTestCase
         $this->assertResponseHtml($response);
         $this->assertResponseOk($response);
     }
+
+    #[Test]
+    public function itRendersMinorFactionsControlsAndGuidance(): void
+    {
+        $body = $this->handleRequest()->getBody();
+
+        $this->assertStringContainsString('name="minor_factions_on"', $body);
+        $this->assertStringContainsString('Minor Factions', $body);
+        $this->assertStringContainsString('twice the number of players', $body);
+        $this->assertStringContainsString('playable but cannot be assigned as Minor Factions', $body);
+    }
+
+    #[Test]
+    public function itRendersTheMinorFactionToggleUncheckedWithTheReplacementRule(): void
+    {
+        $body = $this->handleRequest()->getBody();
+
+        $matched = preg_match('/<input[^>]*id="minor_factions_toggle"[^>]*>/', $body, $toggle);
+        $this->assertSame(1, $matched);
+        $this->assertStringNotContainsString('checked', $toggle[0]);
+        $this->assertStringContainsString(
+            "replaces one blue equidistant system in each slice with the home system of an unselected faction that was available in this draft",
+            $body,
+        );
+    }
 }

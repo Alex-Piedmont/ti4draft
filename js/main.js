@@ -110,8 +110,10 @@ $(document).ready(function () {
     $("#alliance_toggle").on('change', update_alliance_mode);
 
     $("input[name='alliance_teams']").on('change', update_alliance_teams);
+    $('#minor_factions_toggle').on('change', update_minor_factions_mode);
 
     update_alliance_mode();
+    update_minor_factions_mode();
     init_player_count();
 });
 
@@ -272,4 +274,18 @@ function update_player_count() {
     $('#num_players').val(numPlayers);
     $('#add-player').toggle(numPlayers < 8);
     $('.player:gt(' + (numPlayers - 1) + ')').hide().find('input').val('');
+    update_minor_factions_mode();
+}
+
+function update_minor_factions_mode() {
+    const enabled = $('#minor_factions_toggle').is(':checked');
+    const playerCount = parseInt($('#num_players').val()) || 0;
+    const minimum = MinorFactions.minimumFactionCount(playerCount, enabled);
+    const $factionCount = $('#num_factions');
+
+    $('.minor_factions_only').toggle(enabled);
+    $factionCount.attr('min', minimum);
+    if (enabled && parseInt($factionCount.val()) < minimum) {
+        $factionCount.val(minimum);
+    }
 }

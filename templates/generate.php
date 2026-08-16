@@ -181,6 +181,25 @@
 
                     <div class="content-wrap">
                         <div class="header">
+                            <h3>Minor Factions Game Variant</h3>
+                            <p class="help">
+                                The Thunder's Edge Minor Factions variant replaces one blue equidistant system in each slice with the home system of an unselected faction that was available in this draft.
+                            </p>
+                        </div>
+                        <div class="content">
+                            <label for="minor_factions_toggle" class="check">
+                                <input type="checkbox" name="minor_factions_on" id="minor_factions_toggle" value="on" /> Enabled
+                            </label>
+                            <p class="help minor_factions_only">
+                                The faction pool must contain at least twice the number of players so one eligible unselected faction remains for every player. Some exceptional factions remain playable but cannot be assigned as Minor Factions and do not count toward the eligible reserve.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="section">
+
+                    <div class="content-wrap">
+                        <div class="header">
                             <h3>Settings</h3>
                         </div>
                         <div class="content">
@@ -468,6 +487,7 @@
 </script>
 
 <script src="<?= asset_url('js/vendor.js') ?>"></script>
+<script src="<?= asset_url('js/minor-factions.js') ?>"></script>
 <script src="<?= asset_url('js/main.js') ?>"></script>
 </body>
 

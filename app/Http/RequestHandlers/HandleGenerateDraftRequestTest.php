@@ -74,6 +74,14 @@ class HandleGenerateDraftRequestTest extends RequestHandlerTestCase
             'expected' => true,
             'expectedWhenNotSet' => false,
         ];
+        yield 'Minor Factions Mode' => [
+            'postData' => [
+                'minor_factions_on' => 'on',
+            ],
+            'field' => 'minorFactionsMode',
+            'expected' => true,
+            'expectedWhenNotSet' => false,
+        ];
         yield 'Custom Slices' => [
             'postData' => [
                 'custom_slices' => "01,2,03,4,5\n6,7,8,9,10\n11,012,13,014,15A",
@@ -282,5 +290,84 @@ class HandleGenerateDraftRequestTest extends RequestHandlerTestCase
 
         $this->assertResponseOk($response);
         $this->assertResponseJson($response);
+    }
+
+    #[Test]
+    public function itRejectsAnUndersizedMinorFactionRequest(): void
+    {
+        $response = $this->handleRequest([], [
+            'num_players' => 6,
+            'player' => ['Amy', 'Ben', 'Charlie', 'Desmond', 'Esther', 'Frank'],
+            'tileSets' => ['BaseGame' => 'on', 'PoK' => 'on', 'TE' => 'on'],
+            'factionSets' => ['BaseGame' => 'on', 'PoK' => 'on', 'TE' => 'on'],
+            'num_slices' => 7,
+            'num_factions' => 11,
+            'minor_factions_on' => 'on',
+            'min_legendaries' => 0,
+            'min_inf' => 0,
+            'min_res' => 0,
+            'min_total' => 0,
+            'max_total' => 20,
+        ]);
+
+        $this->assertResponseCode(400, $response);
+        $this->assertJsonResponseSame([
+            'error' => InvalidDraftSettingsException::notEnoughFactionsForMinorFactions(12)->getMessage(),
+        ], $response);
+        $this->assertCommandWasDispatched(GenerateDraft::class, 0);
+    }
+
+    #[Test]
+    public function itAcceptsTheExactMinorFactionBoundaryAndDispatchesEnabledSettings(): void
+    {
+        $this->setExpectedReturnValue($this->testDraft);
+
+        $response = $this->handleRequest([], [
+            'num_players' => 6,
+            'player' => ['Amy', 'Ben', 'Charlie', 'Desmond', 'Esther', 'Frank'],
+            'tileSets' => ['BaseGame' => 'on', 'PoK' => 'on', 'TE' => 'on'],
+            'factionSets' => ['BaseGame' => 'on', 'PoK' => 'on', 'TE' => 'on'],
+            'num_slices' => 7,
+            'num_factions' => 12,
+            'minor_factions_on' => 'on',
+            'max_total' => 20,
+        ]);
+
+        $this->assertResponseOk($response);
+        $settings = $this->settingsFromDispatchedGenerateDraft();
+        $this->assertTrue($settings->minorFactionsMode);
+        $this->assertSame(12, $settings->numberOfFactions);
+    }
+
+    #[Test]
+    public function itDispatchesOrdinaryDraftSettingsWithMinorFactionsDisabled(): void
+    {
+        $this->setExpectedReturnValue($this->testDraft);
+
+        $response = $this->handleRequest([], [
+            'num_players' => 3,
+            'player' => ['Amy', 'Ben', 'Charlie'],
+            'tileSets' => ['BaseGame' => 'on'],
+            'factionSets' => ['BaseGame' => 'on'],
+            'num_slices' => 3,
+            'num_factions' => 3,
+            'max_total' => 20,
+        ]);
+
+        $this->assertResponseOk($response);
+        $this->assertFalse($this->settingsFromDispatchedGenerateDraft()->minorFactionsMode);
+    }
+
+    private function settingsFromDispatchedGenerateDraft(): \App\Draft\Settings
+    {
+        $commands = array_values(array_filter(
+            app()->spy->dispatchedCommands,
+            fn ($command) => $command instanceof GenerateDraft,
+        ));
+        $this->assertCount(1, $commands);
+
+        $property = new \ReflectionProperty(GenerateDraft::class, 'settings');
+
+        return $property->getValue($commands[0]);
     }
 }
