@@ -46,6 +46,9 @@ class PlayerPickTest extends TestCase
     #[DataProvider('picks')]
     public function itCanPerformPick(PickCategory $category, string $pick): void
     {
+        if ($category === PickCategory::FACTION) {
+            $pick = $this->testDraft->factionPool[0]->name;
+        }
         $playerId = $this->testDraft->currentPlayerId;
         $pickCmd = new PlayerPick($this->testDraft, new Pick($playerId, $category, $pick));
 
@@ -71,6 +74,9 @@ class PlayerPickTest extends TestCase
     #[DataProvider('picks')]
     public function itSavesPickInLog(PickCategory $category, string $pick): void
     {
+        if ($category === PickCategory::FACTION) {
+            $pick = $this->testDraft->factionPool[0]->name;
+        }
         $playerId = PlayerId::fromString(array_key_first($this->testDraft->players));
 
         $pickVo = new Pick($playerId, $category, $pick);
@@ -103,6 +109,9 @@ class PlayerPickTest extends TestCase
     #[DataProvider('picks')]
     public function itThrowsAnErrorWhenPickCategoryIsPicked(PickCategory $category, string $pick): void
     {
+        if ($category === PickCategory::FACTION) {
+            $pick = $this->testDraft->factionPool[0]->name;
+        }
         $playerId = PlayerId::fromString(array_key_first($this->testDraft->players));
         $pickCmd = new PlayerPick($this->testDraft, new Pick($playerId, $category, $pick));
         $pickCmd->handle();
@@ -116,6 +125,9 @@ class PlayerPickTest extends TestCase
     #[DataProvider('picks')]
     public function itThrowsAnErrorWhenPickWasAlreadyPicked(PickCategory $category, string $pick): void
     {
+        if ($category === PickCategory::FACTION) {
+            $pick = $this->testDraft->factionPool[0]->name;
+        }
         $player1Id = PlayerId::fromString(array_key_first($this->testDraft->players));
         $player2Id = PlayerId::fromString(array_key_last($this->testDraft->players));
         $pickCmd = new PlayerPick($this->testDraft, new Pick($player1Id, $category, $pick));
@@ -126,5 +138,25 @@ class PlayerPickTest extends TestCase
         $pick2Cmd = new PlayerPick($this->testDraft, new Pick($player2Id, $category, $pick));
         $pick2Cmd->handle();
 
+    }
+
+    #[Test]
+    public function itRejectsAnOutOfPoolFactionWithoutChangingDraftState(): void
+    {
+        $before = $this->testDraft->toArray(true);
+        $playerId = $this->testDraft->currentPlayerId;
+        $pick = new Pick($playerId, PickCategory::FACTION, 'A Faction Outside This Draft');
+
+        try {
+            (new PlayerPick($this->testDraft, $pick))->handle();
+            $this->fail('Expected the unavailable faction pick to be rejected');
+        } catch (InvalidPickException $exception) {
+            $this->assertSame(
+                InvalidPickException::factionNotAvailable($pick->pickedOption)->getMessage(),
+                $exception->getMessage(),
+            );
+        }
+
+        $this->assertSame($before, $this->testDraft->toArray(true));
     }
 }

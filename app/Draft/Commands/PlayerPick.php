@@ -7,7 +7,9 @@ namespace App\Draft\Commands;
 use App\Draft\Draft;
 use App\Draft\Exceptions\InvalidPickException;
 use App\Draft\Pick;
+use App\Draft\PickCategory;
 use App\Shared\Command;
+use App\TwilightImperium\Faction;
 
 class PlayerPick implements Command
 {
@@ -23,6 +25,17 @@ class PlayerPick implements Command
 
         if ($player->id->value !== $this->draft->currentPlayerId->value) {
             throw InvalidPickException::notPlayersTurn();
+        }
+
+        if ($this->pick->category === PickCategory::FACTION) {
+            $availableFactions = array_map(
+                static fn (Faction $faction): string => $faction->name,
+                $this->draft->factionPool,
+            );
+
+            if (! in_array($this->pick->pickedOption, $availableFactions, true)) {
+                throw InvalidPickException::factionNotAvailable($this->pick->pickedOption);
+            }
         }
 
         foreach($this->draft->players as $p) {

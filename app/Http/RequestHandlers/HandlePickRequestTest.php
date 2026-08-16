@@ -8,6 +8,7 @@ use App\Draft\Commands\ClaimPlayer;
 use App\Draft\Commands\PlayerPick;
 use App\Draft\PickCategory;
 use App\Draft\PlayerId;
+use App\Draft\Exceptions\InvalidPickException;
 use App\Testing\FakesCommands;
 use App\Testing\RequestHandlerTestCase;
 use App\Testing\UsesTestDraft;
@@ -119,5 +120,31 @@ class HandlePickRequestTest extends RequestHandlerTestCase
                 $this->assertSame($cmd->pick->pickedOption, $value);
             },
         );
+    }
+
+    #[Test]
+    public function itReturnsBadRequestForAnOutOfPoolFactionWithoutMutation(): void
+    {
+        app()->dontSpyOnDispatcher();
+        $playerId = $this->testDraft->currentPlayerId;
+        $before = $this->testDraft->toArray(true);
+        $unavailable = 'A Faction Outside This Draft';
+
+        $response = $this->handleRequest([
+            'id' => $this->testDraft->id,
+            'index' => 0,
+            'player' => $playerId->value,
+            'admin' => $this->testDraft->secrets->adminSecret,
+            'category' => PickCategory::FACTION->value,
+            'value' => $unavailable,
+        ]);
+
+        $this->assertResponseCode(400, $response);
+        $this->assertJsonResponseSame([
+            'error' => InvalidPickException::factionNotAvailable($unavailable)->getMessage(),
+        ], $response);
+
+        $this->reloadDraft();
+        $this->assertSame($before, $this->testDraft->toArray(true));
     }
 }

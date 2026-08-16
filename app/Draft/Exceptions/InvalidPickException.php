@@ -27,4 +27,9 @@ class InvalidPickException extends \Exception
     {
         return new self("It's not your turn!");
     }
+
+    public static function factionNotAvailable(string $value): self
+    {
+        return new self(sprintf('Faction is not available in this draft: %s', $value));
+    }
 }

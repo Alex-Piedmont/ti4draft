@@ -8,6 +8,7 @@ use App\Draft\Commands\PlayerPick;
 use App\Draft\Pick;
 use App\Draft\PickCategory;
 use App\Draft\PlayerId;
+use App\Draft\Exceptions\InvalidPickException;
 use App\Http\HttpResponse;
 use App\Http\JsonResponse;
 
@@ -36,11 +37,15 @@ class HandlePickRequest extends DraftRequestHandler
             );
         }
 
-        dispatch(new PlayerPick($draft, new Pick(
-            $playerId,
-            PickCategory::from($this->request->get('category')),
-            $this->request->get('value'),
-        )));
+        try {
+            dispatch(new PlayerPick($draft, new Pick(
+                $playerId,
+                PickCategory::from($this->request->get('category')),
+                $this->request->get('value'),
+            )));
+        } catch (InvalidPickException $exception) {
+            return $this->error($exception->getMessage(), 400);
+        }
 
         return new JsonResponse([
             'draft' => $draft->toArray(),
