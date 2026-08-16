@@ -124,4 +124,112 @@ class DraftTest extends TestCase
         $this->assertNull($draft->currentPlayerId);
         $this->assertTrue($draft->isDone);
     }
+
+    #[Test]
+    public function publicOutputDerivesMinorAssignmentsButSavedOutputDoesNotPersistThem(): void
+    {
+        $draft = $this->completedMinorFactionDraft();
+
+        $public = $draft->toArray();
+        $saved = json_decode($draft->toFileContent(), true);
+
+        $this->assertSame(MinorFactionAssignments::STATUS_RESOLVED, $public['minor_factions']['status']);
+        $this->assertCount(3, $public['minor_factions']['assignments']);
+        $this->assertArrayNotHasKey('minor_factions', $saved);
+        $this->assertTrue($saved['config']['minor_factions']);
+    }
+
+    #[Test]
+    public function minorAssignmentsAreStableAfterSavingAndReloading(): void
+    {
+        $draft = $this->completedMinorFactionDraft();
+        $before = $draft->toArray()['minor_factions'];
+
+        $reloaded = Draft::fromJson(json_decode($draft->toFileContent(), true));
+
+        $this->assertSame($before, $reloaded->toArray()['minor_factions']);
+        $this->assertTrue($reloaded->slicePool[0]->minorFactionsMode);
+    }
+
+    #[Test]
+    public function minorAssignmentsDisappearAfterUndoAndReturnIdenticallyAfterRecompletion(): void
+    {
+        $draft = $this->completedMinorFactionDraft();
+        $resolved = $draft->toArray()['minor_factions'];
+        $player = $draft->players['b'];
+
+        $draft->updatePlayerData($player->unpick(PickCategory::FACTION));
+        $pending = $draft->toArray()['minor_factions'];
+
+        $this->assertSame(MinorFactionAssignments::STATUS_PENDING, $pending['status']);
+        $this->assertSame([], $pending['assignments']);
+
+        $draft->updatePlayerData(
+            $draft->players['b']->pick(new Pick(
+                $draft->players['b']->id,
+                PickCategory::FACTION,
+                (string) $player->pickedFaction,
+            )),
+        );
+
+        $this->assertSame($resolved, $draft->toArray()['minor_factions']);
+    }
+
+    #[Test]
+    public function malformedMinorFactionDraftCanBePersistedAndReportsInvalidWithoutPartialAssignments(): void
+    {
+        $draft = $this->completedMinorFactionDraft();
+        $draft->factionPool = array_slice($draft->factionPool, 0, 4);
+
+        $savedContent = $draft->toFileContent();
+        $public = $draft->toArray();
+
+        $this->assertJson($savedContent);
+        $this->assertSame([
+            'enabled' => true,
+            'equidistant_index' => Slice::EQUIDISTANT_INDEX,
+            'status' => MinorFactionAssignments::STATUS_INVALID,
+            'assignments' => [],
+            'error' => MinorFactionAssignments::ERROR_INSUFFICIENT_ELIGIBLE_CANDIDATES,
+        ], $public['minor_factions']);
+
+        $saved = json_decode($savedContent, true);
+        $this->assertTrue($saved['config']['minor_factions']);
+        $this->assertArrayNotHasKey('minor_factions', $saved);
+
+        $reloaded = Draft::fromJson($saved);
+        $this->assertSame($public['minor_factions'], $reloaded->toArray()['minor_factions']);
+    }
+
+    private function completedMinorFactionDraft(): Draft
+    {
+        $factions = Faction::all();
+        $tiles = Tile::all();
+        $players = [
+            'a' => new Player(PlayerId::fromString('a'), 'Alice', pickedPosition: '2', pickedFaction: 'The Arborec'),
+            'b' => new Player(PlayerId::fromString('b'), 'Bob', pickedPosition: '0', pickedFaction: 'The Barony of Letnev'),
+            'c' => new Player(PlayerId::fromString('c'), 'Carol', pickedPosition: '1', pickedFaction: 'The Emirates of Hacan'),
+        ];
+
+        return new Draft(
+            'minor-test',
+            true,
+            $players,
+            DraftSettingsFactory::make([
+                'numberOfPlayers' => 3,
+                'numberOfFactions' => 6,
+                'minorFactionsMode' => true,
+            ]),
+            new Secrets('secret'),
+            [new Slice([$tiles['64'], $tiles['33'], $tiles['42'], $tiles['67'], $tiles['59']], true)],
+            [
+                $factions['The Arborec'],
+                $factions['The Barony of Letnev'],
+                $factions['The Emirates of Hacan'],
+                $factions["Sardakk N'orr"],
+                $factions['The Clan of Saar'],
+                $factions['The Embers of Muaat'],
+            ],
+        );
+    }
 }

@@ -85,10 +85,22 @@ class Draft
 
     public function toFileContent(): string
     {
-        return json_encode($this->toArray(true));
+        return json_encode($this->baseArray(true));
     }
 
     public function toArray($includeSecrets = false): array
+    {
+        $data = $this->baseArray($includeSecrets);
+        $data['minor_factions'] = (new MinorFactionAssignments(
+            $this->settings->minorFactionsMode,
+            $this->players,
+            $this->factionPool,
+        ))->toArray();
+
+        return $data;
+    }
+
+    private function baseArray(bool $includeSecrets): array
     {
         $data = [
             'id' => $this->id,
