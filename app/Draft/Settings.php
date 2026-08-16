@@ -49,6 +49,7 @@ class Settings
         public ?AllianceTeamMode $allianceTeamMode = null,
         public ?AllianceTeamPosition $allianceTeamPosition = null,
         public ?bool $allianceForceDoublePicks = null,
+        public bool $minorFactionsMode = false,
     ) {
     }
 
@@ -100,6 +101,7 @@ class Settings
                 'alliance_teams_position' => $this->allianceTeamPosition->value,
                 'force_double_picks' => $this->allianceForceDoublePicks,
             ] : null,
+            'minor_factions' => $this->minorFactionsMode,
         ];
     }
 
@@ -141,6 +143,11 @@ class Settings
 
         if (count($this->playerNames) > $this->numberOfFactions) {
             throw InvalidDraftSettingsException::notEnoughFactionsForPlayers();
+        }
+
+        $minimumMinorFactionPoolSize = count($this->playerNames) * 2;
+        if ($this->minorFactionsMode && $this->numberOfFactions < $minimumMinorFactionPoolSize) {
+            throw InvalidDraftSettingsException::notEnoughFactionsForMinorFactions($minimumMinorFactionPoolSize);
         }
 
         return true;
@@ -238,6 +245,7 @@ class Settings
             $allianceMode ? AllianceTeamMode::from($data['alliance']['alliance_teams']) : null,
             $allianceMode ? AllianceTeamPosition::from($data['alliance']['alliance_teams_position']) : null,
             $allianceMode ? (bool) $data['alliance']['force_double_picks'] : null,
+            (bool) ($data['minor_factions'] ?? false),
         );
     }
 
@@ -326,6 +334,7 @@ class Settings
             $this->allianceTeamMode,
             $this->allianceTeamPosition,
             $this->allianceForceDoublePicks,
+            $this->minorFactionsMode,
         );
 
     }

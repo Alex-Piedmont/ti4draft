@@ -61,6 +61,7 @@ class DraftSettingsFactory
             $allianceMode ? $properties['allianceTeamMode'] ?? AllianceTeamMode::RANDOM : null,
             $allianceMode ? $properties['allianceTeamPosition'] ?? AllianceTeamPosition::OPPOSITES : null,
             $allianceMode ? $properties['allianceForceDoublePicks'] ?? false : null,
+            $properties['minorFactionsMode'] ?? false,
         );
     }
 }

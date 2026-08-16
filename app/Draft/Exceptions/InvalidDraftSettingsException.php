@@ -34,6 +34,11 @@ class InvalidDraftSettingsException extends \Exception
         return new self('Cannot have less factions than players');
     }
 
+    public static function notEnoughFactionsForMinorFactions(int $minimum): self
+    {
+        return new self(sprintf('Minor Factions requires at least %d eligible factions in the draft pool', $minimum));
+    }
+
     public static function unknownTileInCustomSlice($id): self
     {
         return new self('Custom slices contain unknown tile number:' . $id);

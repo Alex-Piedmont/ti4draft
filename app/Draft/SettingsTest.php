@@ -59,6 +59,7 @@ class SettingsTest extends TestCase
             AllianceTeamMode::RANDOM,
             AllianceTeamPosition::NEIGHBORS,
             true,
+            true,
         );
 
         $array = $draftSettings->toArray();
@@ -97,6 +98,7 @@ class SettingsTest extends TestCase
         $this->assertSame('random', $array['alliance']['alliance_teams']);
         $this->assertSame('neighbors', $array['alliance']['alliance_teams_position']);
         $this->assertSame(true, $array['alliance']['force_double_picks']);
+        $this->assertTrue($array['minor_factions']);
     }
 
     public static function validationCases()
@@ -151,6 +153,81 @@ class SettingsTest extends TestCase
         $this->expectException(InvalidDraftSettingsException::class);
         $this->expectExceptionMessage(InvalidDraftSettingsException::notEnoughFactionsForPlayers()->getMessage());
         $draft->validate();
+    }
+
+    #[Test]
+    public function itAcceptsTheMinorFactionPoolSizeBoundary(): void
+    {
+        $settings = DraftSettingsFactory::make([
+            'numberOfPlayers' => 6,
+            'numberOfFactions' => 12,
+            'minorFactionsMode' => true,
+        ]);
+
+        $this->assertTrue($settings->validate());
+    }
+
+    #[Test]
+    public function itRejectsAnUndersizedMinorFactionPool(): void
+    {
+        $settings = DraftSettingsFactory::make([
+            'numberOfPlayers' => 6,
+            'numberOfFactions' => 11,
+            'minorFactionsMode' => true,
+        ]);
+
+        $this->expectException(InvalidDraftSettingsException::class);
+        $this->expectExceptionMessage(
+            InvalidDraftSettingsException::notEnoughFactionsForMinorFactions(12)->getMessage(),
+        );
+
+        $settings->validate();
+    }
+
+    #[Test]
+    public function minorFactionModeDoesNotChangeTheOrdinaryFactionMinimum(): void
+    {
+        $settings = DraftSettingsFactory::make([
+            'numberOfPlayers' => 6,
+            'numberOfFactions' => 6,
+            'minorFactionsMode' => false,
+        ]);
+
+        $this->assertTrue($settings->validate());
+    }
+
+    #[Test]
+    public function itRoundTripsMinorFactionMode(): void
+    {
+        $settings = DraftSettingsFactory::make(['minorFactionsMode' => true]);
+
+        $restored = Settings::fromJson($settings->toArray());
+
+        $this->assertTrue($restored->minorFactionsMode);
+    }
+
+    #[Test]
+    public function itRoundTripsDisabledMinorFactionModeWithoutEnablingIt(): void
+    {
+        $settings = DraftSettingsFactory::make(['minorFactionsMode' => false]);
+
+        $payload = $settings->toArray();
+        $restored = Settings::fromJson($payload);
+
+        $this->assertArrayHasKey('minor_factions', $payload);
+        $this->assertFalse($payload['minor_factions']);
+        $this->assertFalse($restored->minorFactionsMode);
+    }
+
+    #[Test]
+    public function itDefaultsMissingMinorFactionModeToDisabled(): void
+    {
+        $payload = DraftSettingsFactory::make()->toArray();
+        unset($payload['minor_factions']);
+
+        $restored = Settings::fromJson($payload);
+
+        $this->assertFalse($restored->minorFactionsMode);
     }
 
     public static function maxSlices()
@@ -337,6 +414,7 @@ class SettingsTest extends TestCase
             $this->assertSame($data['config']['custom_slices'], $draftSettings->customSlices);
         }
         $this->assertSame($data['config']['seed'], $draftSettings->seed->getValue());
+        $this->assertSame((bool) ($data['config']['minor_factions'] ?? false), $draftSettings->minorFactionsMode);
         if ($data['config']['alliance'] != null) {
             $this->assertSame($data['config']['alliance']['alliance_teams'], $draftSettings->allianceTeamMode->value);
             $this->assertSame($data['config']['alliance']['alliance_teams_position'], $draftSettings->allianceTeamPosition->value);
