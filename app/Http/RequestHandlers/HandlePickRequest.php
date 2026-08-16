@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Http\RequestHandlers;
 
 use App\Draft\Commands\PlayerPick;
+use App\Draft\Exceptions\InvalidPickException;
 use App\Draft\Pick;
 use App\Draft\PickCategory;
 use App\Draft\PlayerId;
-use App\Draft\Exceptions\InvalidPickException;
 use App\Http\HttpResponse;
 use App\Http\JsonResponse;
 

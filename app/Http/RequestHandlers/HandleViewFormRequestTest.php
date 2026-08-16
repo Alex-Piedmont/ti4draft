@@ -47,7 +47,7 @@ class HandleViewFormRequestTest extends RequestHandlerTestCase
         $this->assertSame(1, $matched);
         $this->assertStringNotContainsString('checked', $toggle[0]);
         $this->assertStringContainsString(
-            "replaces one blue equidistant system in each slice with the home system of an unselected faction that was available in this draft",
+            'replaces one blue equidistant system in each slice with the home system of an unselected faction that was available in this draft',
             $body,
         );
     }

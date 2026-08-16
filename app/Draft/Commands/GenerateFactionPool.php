@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Draft\Commands;
 
-use App\Draft\Settings;
 use App\Draft\Exceptions\InvalidDraftSettingsException;
+use App\Draft\Settings;
 use App\Shared\Command;
 use App\TwilightImperium\Faction;
 

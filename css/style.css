@@ -1545,6 +1545,29 @@ strong {
   margin-top: 24px;
 }
 
+.minor-factions-panel {
+  margin: 2em 0;
+  padding: 1em;
+  border: 2px solid rgba(22, 35, 44, 0.2);
+}
+.minor-factions-panel table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.minor-factions-panel th, .minor-factions-panel td {
+  padding: 0.5em;
+  text-align: left;
+  border-bottom: 1px solid rgba(22, 35, 44, 0.2);
+}
+.minor-factions-panel .minor-factions-error {
+  color: #a32727;
+  font-weight: 600;
+}
+
+.minor-faction-placeholder {
+  opacity: 0.45;
+}
+
 .print-button {
   float: right;
 }

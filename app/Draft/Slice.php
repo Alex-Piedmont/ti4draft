@@ -82,6 +82,7 @@ class Slice
     public function toJson(): array
     {
         $this->refreshSummary();
+
         // @refactor so that tile ids just get imported from json and then populated from those tiles
         return [
             'tiles' => array_map(fn(Tile $tile) => $tile->id, $this->tiles),
@@ -153,11 +154,13 @@ class Slice
 
             if ($tries > self::MAX_ARRANGEMENT_TRIES) {
                 $this->refreshSummary();
+
                 return false;
             }
         }
 
         $this->refreshSummary();
+
         return true;
     }
 
@@ -223,12 +226,14 @@ class Slice
     public function hasLegendary(): bool
     {
         $this->refreshSummary();
+
         return count($this->legendaryPlanets) > 0;
     }
 
     public function hasWormhole(Wormhole $wormhole): bool
     {
         $this->refreshSummary();
+
         return in_array($wormhole, $this->wormholes);
     }
 }

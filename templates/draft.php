@@ -1,5 +1,6 @@
 <?php
     /** @var \App\Draft\Draft $draft */
+    $minorFactions = $draft->toArray(false)['minor_factions'];
 ?>
 
 <!DOCTYPE html>
@@ -81,6 +82,33 @@
                         <?php endforeach; ?>
                     </div>
 
+                    <?php if ($minorFactions['enabled']) : ?>
+                        <section id="minor-factions" class="minor-factions-panel" data-status="<?= $minorFactions['status'] ?>">
+                            <h3>Minor Factions</h3>
+                            <p class="help">Each speaker position receives an eligible unselected faction from this draft's original faction pool. The pool requires an eligible reserve of twice the player count. Each assigned home system replaces the reserved equidistant blue system.</p>
+                            <div class="minor-factions-content">
+                                <?php if ($minorFactions['status'] === \App\Draft\MinorFactionAssignments::STATUS_RESOLVED) : ?>
+                                    <table class="minor-factions-assignments">
+                                        <thead><tr><th>Position</th><th>Faction</th><th>Home system</th></tr></thead>
+                                        <tbody>
+                                            <?php foreach ($minorFactions['assignments'] as $assignment) : ?>
+                                                <tr data-position="<?= $assignment['position'] ?>">
+                                                    <td><?= ordinal($assignment['position'] + 1) ?></td>
+                                                    <td><?= $assignment['faction'] ?></td>
+                                                    <td><?= $assignment['home_system'] ?></td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                <?php elseif ($minorFactions['status'] === \App\Draft\MinorFactionAssignments::STATUS_INVALID) : ?>
+                                    <p class="minor-factions-error">Minor Factions configuration error: <?= $minorFactions['error'] ?></p>
+                                <?php else : ?>
+                                    <p class="minor-factions-pending">Assignments appear after every faction and speaker position has been selected.</p>
+                                <?php endif; ?>
+                            </div>
+                        </section>
+                    <?php endif; ?>
+
                     <div class="factions draft-options">
                         <h3>Factions</h3>
                         <div class="options">
@@ -108,8 +136,9 @@
                                     <div class="slice-graph">
                                         <div class="wrap">
                                             <?php foreach ($slice->tiles as $i => $tile) : ?>
-                                                <img class="tile-<?= $i ?>" src="<?= url('img/tiles/ST_' . $tile->id . '.png') ?>" />
-                                                <img class="zoom tile-<?= $i ?>" src="<?= url('img/tiles/ST_' . $tile->id . '.png') ?>" />
+                                                <?php $displayTileId = $minorFactions['enabled'] && $i === $minorFactions['equidistant_index'] ? '0' : $tile->id; ?>
+                                                <img class="tile-<?= $i ?><?= $displayTileId === '0' ? ' minor-faction-placeholder' : '' ?>" title="<?= $displayTileId === '0' ? 'Reserved for a Minor Faction' : '' ?>" src="<?= url('img/tiles/ST_' . $displayTileId . '.png') ?>" />
+                                                <img class="zoom tile-<?= $i ?><?= $displayTileId === '0' ? ' minor-faction-placeholder' : '' ?>" src="<?= url('img/tiles/ST_' . $displayTileId . '.png') ?>" />
                                             <?php endforeach; ?>
                                             <img class="tile-h" src="<?= url('img/tiles/ST_0.png') ?>" />
                                         </div>
@@ -210,6 +239,9 @@
                     </p>
                     <p>
                         <label>Number of Factions:</label> <strong><?= $draft->settings->numberOfFactions ?></strong>
+                    </p>
+                    <p>
+                        <label>Minor Factions:</label> <strong><?= yesno($draft->settings->minorFactionsMode) ?></strong>
                     </p>
                     <p>
                         <label>Faction sets included:</label> <strong><?= implode("<br />", $draft->settings->factionSetNames()) ?></strong>
@@ -442,6 +474,7 @@
         }
     </script>
     <script src="<?= asset_url('js/vendor.js') ?>"></script>
+    <script src="<?= asset_url('js/minor-factions.js') ?>"></script>
     <script src="<?= asset_url('js/draft.js') ?>"></script>
     <script src="<?= asset_url('js/generate-map.js') ?>"></script>
 </body>

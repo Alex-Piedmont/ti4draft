@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Draft\Commands;
 
-use App\Shared\Command;
 use App\Draft\Exceptions\InvalidDraftSettingsException;
+use App\Shared\Command;
 use App\Testing\Factories\DraftSettingsFactory;
 use App\Testing\TestCase;
 use App\Testing\TestSets;

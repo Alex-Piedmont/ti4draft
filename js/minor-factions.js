@@ -14,7 +14,34 @@
         return enabled ? players * 2 : players;
     }
 
+    function resolveSliceTile(mode, position, tileIndex, originalTile) {
+        if (!mode || !mode.enabled || Number(tileIndex) !== Number(mode.equidistant_index)) {
+            return { tile: originalTile, label: null, minor: false };
+        }
+
+        if (mode.status === 'resolved') {
+            const assignment = (mode.assignments || []).find(
+                (candidate) => Number(candidate.position) === Number(position),
+            );
+
+            if (
+                assignment &&
+                typeof assignment.faction === 'string' && assignment.faction.length > 0 &&
+                typeof assignment.home_system === 'string' && assignment.home_system.length > 0
+            ) {
+                return {
+                    tile: assignment.home_system,
+                    label: assignment.faction,
+                    minor: true,
+                };
+            }
+        }
+
+        return { tile: 0, label: 'Minor Faction', minor: true };
+    }
+
     return {
         minimumFactionCount,
+        resolveSliceTile,
     };
 }));

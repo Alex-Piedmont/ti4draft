@@ -457,8 +457,15 @@ function lookup(player_index, tile_index) {
                 return [tile, p.name];
             }
             else if(p.slice != null) {
-                // huzzah!
-                return [draft.slices[p.slice].tiles[tile_index], p.name];
+                const originalTile = draft.slices[p.slice].tiles[tile_index];
+                const resolvedTile = MinorFactions.resolveSliceTile(
+                    draft.minor_factions,
+                    player_index,
+                    tile_index,
+                    originalTile,
+                );
+
+                return [resolvedTile.tile, p.name, resolvedTile.label];
             }
         }
     }
@@ -490,6 +497,8 @@ function draw_tile(tile) {
             tilename = result[0];
             rotation = 0;
             label = result[0];
+
+            if(result[2] != null) label = result[2];
 
             if(label == "EMPTY") label = (parseInt(chunks[0]) + 1) + "-" + chunks[1];
 

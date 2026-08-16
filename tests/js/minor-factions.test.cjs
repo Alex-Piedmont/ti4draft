@@ -18,6 +18,77 @@ test('invalid player counts do not produce a negative minimum', () => {
     assert.equal(MinorFactions.minimumFactionCount('invalid', true), 0);
 });
 
+test('resolved assignments replace only the server-described equidistant index', () => {
+    const mode = {
+        enabled: true,
+        equidistant_index: 4,
+        status: 'resolved',
+        assignments: [{ position: 2, faction: 'The Arborec', home_system: '5' }],
+    };
+
+    assert.deepEqual(MinorFactions.resolveSliceTile(mode, 2, 4, '99'), {
+        tile: '5',
+        label: 'The Arborec',
+        minor: true,
+    });
+    assert.deepEqual(MinorFactions.resolveSliceTile(mode, 2, 3, '98'), {
+        tile: '98',
+        label: null,
+        minor: false,
+    });
+});
+
+test('pending and invalid assignments preserve an empty reserved coordinate', () => {
+    for (const status of ['pending', 'invalid']) {
+        const result = MinorFactions.resolveSliceTile({
+            enabled: true,
+            equidistant_index: 4,
+            status,
+            assignments: [],
+        }, 0, 4, '99');
+
+        assert.deepEqual(result, { tile: 0, label: 'Minor Faction', minor: true });
+    }
+});
+
+test('disabled mode preserves the original tile', () => {
+    assert.deepEqual(MinorFactions.resolveSliceTile({
+        enabled: false,
+        equidistant_index: 4,
+        status: 'pending',
+        assignments: [],
+    }, 0, 4, '99'), { tile: '99', label: null, minor: false });
+});
+
+test('malformed resolved assignments fail closed at the reserved coordinate', () => {
+    for (const assignment of [
+        { position: 0, faction: 'The Arborec' },
+        { position: 0, faction: '', home_system: '5' },
+        { position: 0, faction: 'The Arborec', home_system: '' },
+        { position: 0, faction: 'The Arborec', home_system: null },
+    ]) {
+        const result = MinorFactions.resolveSliceTile({
+            enabled: true,
+            equidistant_index: 4,
+            status: 'resolved',
+            assignments: [assignment],
+        }, 0, 4, '905');
+
+        assert.deepEqual(result, { tile: 0, label: 'Minor Faction', minor: true });
+    }
+});
+
+test('resolved payload without an assignment for the requested position does not leak the reserved tile', () => {
+    const result = MinorFactions.resolveSliceTile({
+        enabled: true,
+        equidistant_index: 4,
+        status: 'resolved',
+        assignments: [{ position: 1, faction: 'The Arborec', home_system: '5' }],
+    }, 0, 4, '905');
+
+    assert.deepEqual(result, { tile: 0, label: 'Minor Faction', minor: true });
+});
+
 function browserHarness() {
     const state = {
         enabled: true,
