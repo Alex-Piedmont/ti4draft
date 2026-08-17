@@ -31,13 +31,11 @@ class HandleGenerateDraftRequest extends RequestHandler
     {
         try {
             $this->settings->validate();
+            $draft = dispatch(new GenerateDraft($this->settings));
+            app()->repository->save($draft);
         } catch (InvalidDraftSettingsException $e) {
             return $this->error($e->getMessage(), 400);
         }
-
-        $draft = dispatch(new GenerateDraft($this->settingsFromRequest()));
-
-        app()->repository->save($draft);
 
         return $this->json([
             'id' => $draft->id,
@@ -56,7 +54,10 @@ class HandleGenerateDraftRequest extends RequestHandler
 
         $customSlices = [];
         if ($this->request->get('custom_slices', '') != '') {
-            $sliceData = explode("\n", $this->request->get('custom_slices'));
+            $sliceData = array_values(array_filter(
+                explode("\n", $this->request->get('custom_slices')),
+                fn (string $row): bool => trim($row) !== '',
+            ));
             foreach ($sliceData as $s) {
                 $slice = [];
                 $t = explode(',', $s);

@@ -111,7 +111,7 @@ $(document).ready(function () {
 
     $("input[name='alliance_teams']").on('change', update_alliance_teams);
     $('#minor_factions_toggle').on('change', function () {
-        update_minor_factions_mode(true);
+        update_minor_factions_mode();
     });
 
     update_alliance_mode();
@@ -279,7 +279,7 @@ function update_player_count() {
     update_minor_factions_mode();
 }
 
-function update_minor_factions_mode(applySliceDefaults = false) {
+function update_minor_factions_mode() {
     const enabled = $('#minor_factions_toggle').is(':checked');
     const playerCount = parseInt($('#num_players').val()) || 0;
     const minimum = MinorFactions.minimumFactionCount(playerCount, enabled);
@@ -291,11 +291,4 @@ function update_minor_factions_mode(applySliceDefaults = false) {
         $factionCount.val(minimum);
     }
 
-    if (applySliceDefaults) {
-        const defaults = MinorFactions.sliceConstraintDefaults(enabled);
-        $('#min_inf').val(defaults.minimumInfluence);
-        $('#min_res').val(defaults.minimumResources);
-        $('#min_total').val(defaults.minimumTotal);
-        $('#max_total').val(defaults.maximumTotal);
-    }
 }

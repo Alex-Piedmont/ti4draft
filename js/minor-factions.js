@@ -11,19 +11,10 @@
 
     function minimumFactionCount(playerCount, enabled) {
         const players = Math.max(0, Number.parseInt(playerCount, 10) || 0);
-        return enabled ? players * 2 : players;
+        return players;
     }
 
     function sliceConstraintDefaults(enabled) {
-        if (enabled) {
-            return {
-                minimumInfluence: 2,
-                minimumResources: 1,
-                minimumTotal: 5,
-                maximumTotal: 10,
-            };
-        }
-
         return {
             minimumInfluence: 4,
             minimumResources: 2.5,

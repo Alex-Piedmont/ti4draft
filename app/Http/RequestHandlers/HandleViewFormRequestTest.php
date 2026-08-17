@@ -34,8 +34,9 @@ class HandleViewFormRequestTest extends RequestHandlerTestCase
 
         $this->assertStringContainsString('name="minor_factions_on"', $body);
         $this->assertStringContainsString('Minor Factions', $body);
-        $this->assertStringContainsString('twice the number of players', $body);
-        $this->assertStringContainsString('playable but cannot be assigned as Minor Factions', $body);
+        $this->assertStringContainsString('requested faction count is the number of draftable choices', $body);
+        $this->assertStringContainsString('one eligible unused faction for every generated slice', $body);
+        $this->assertStringContainsString('face up and counts toward that slice', $body);
     }
 
     #[Test]

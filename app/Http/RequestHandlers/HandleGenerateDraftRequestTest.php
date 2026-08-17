@@ -293,15 +293,16 @@ class HandleGenerateDraftRequestTest extends RequestHandlerTestCase
     }
 
     #[Test]
-    public function itRejectsAnUndersizedMinorFactionRequest(): void
+    public function itAcceptsOneDraftableFactionPerPlayerInMinorMode(): void
     {
+        $this->setExpectedReturnValue($this->testDraft);
         $response = $this->handleRequest([], [
             'num_players' => 6,
             'player' => ['Amy', 'Ben', 'Charlie', 'Desmond', 'Esther', 'Frank'],
             'tileSets' => ['BaseGame' => 'on', 'PoK' => 'on', 'TE' => 'on'],
             'factionSets' => ['BaseGame' => 'on', 'PoK' => 'on', 'TE' => 'on'],
             'num_slices' => 7,
-            'num_factions' => 11,
+            'num_factions' => 6,
             'minor_factions_on' => 'on',
             'min_legendaries' => 0,
             'min_inf' => 0,
@@ -310,11 +311,9 @@ class HandleGenerateDraftRequestTest extends RequestHandlerTestCase
             'max_total' => 20,
         ]);
 
-        $this->assertResponseCode(400, $response);
-        $this->assertJsonResponseSame([
-            'error' => InvalidDraftSettingsException::notEnoughFactionsForMinorFactions(12)->getMessage(),
-        ], $response);
-        $this->assertCommandWasDispatched(GenerateDraft::class, 0);
+        $this->assertResponseOk($response);
+        $this->assertCommandWasDispatched(GenerateDraft::class);
+        $this->assertSame(6, $this->settingsFromDispatchedGenerateDraft()->numberOfFactions);
     }
 
     #[Test]
@@ -328,7 +327,7 @@ class HandleGenerateDraftRequestTest extends RequestHandlerTestCase
             'tileSets' => ['BaseGame' => 'on', 'PoK' => 'on', 'TE' => 'on'],
             'factionSets' => ['BaseGame' => 'on', 'PoK' => 'on', 'TE' => 'on'],
             'num_slices' => 7,
-            'num_factions' => 12,
+            'num_factions' => 6,
             'minor_factions_on' => 'on',
             'max_total' => 20,
         ]);
@@ -336,7 +335,7 @@ class HandleGenerateDraftRequestTest extends RequestHandlerTestCase
         $this->assertResponseOk($response);
         $settings = $this->settingsFromDispatchedGenerateDraft();
         $this->assertTrue($settings->minorFactionsMode);
-        $this->assertSame(12, $settings->numberOfFactions);
+        $this->assertSame(6, $settings->numberOfFactions);
     }
 
     #[Test]
@@ -356,6 +355,70 @@ class HandleGenerateDraftRequestTest extends RequestHandlerTestCase
 
         $this->assertResponseOk($response);
         $this->assertFalse($this->settingsFromDispatchedGenerateDraft()->minorFactionsMode);
+    }
+
+    #[Test]
+    public function itValidatesAndDispatchesTheSameSingleParsedSettingsInstance(): void
+    {
+        $post = [
+            'num_players' => 3,
+            'player' => ['Amy', 'Ben', 'Charlie'],
+            'tileSets' => ['BaseGame' => 'on'],
+            'factionSets' => ['BaseGame' => 'on'],
+            'num_slices' => 3,
+            'num_factions' => 3,
+            'max_total' => 20,
+        ];
+        $handler = new HandleGenerateDraftRequest(new HttpRequest([], $post, []));
+        $property = new \ReflectionProperty(HandleGenerateDraftRequest::class, 'settings');
+        $parsed = $property->getValue($handler);
+        $this->setExpectedReturnValue($this->testDraft);
+
+        $response = $handler->handle();
+
+        $this->assertResponseOk($response);
+        $this->assertSame($parsed, $this->settingsFromDispatchedGenerateDraft());
+    }
+
+    #[Test]
+    public function generationDomainFailuresReturn400AndSaveNothing(): void
+    {
+        app()->dontSpyOnDispatcher();
+        $before = glob(env('STORAGE_PATH') . '/draft_*.json') ?: [];
+        $response = $this->handleRequest([], [
+            'num_players' => 3,
+            'player' => ['Amy', 'Ben', 'Charlie'],
+            'tileSets' => ['BaseGame' => 'on', 'PoK' => 'on'],
+            'factionSets' => ['PoK' => 'on'],
+            'num_slices' => 4,
+            'num_factions' => 4,
+            'minor_factions_on' => 'on',
+            'min_legendaries' => 0,
+            'min_inf' => 0,
+            'min_res' => 0,
+            'min_total' => 0,
+            'max_total' => 100,
+        ]);
+
+        $this->assertResponseCode(400, $response);
+        $this->assertStringContainsString('catalog shortage', $response->getBody());
+        $this->assertSame($before, glob(env('STORAGE_PATH') . '/draft_*.json') ?: []);
+    }
+
+    #[Test]
+    public function unexpectedGenerationFailuresAreNotConvertedToValidationErrors(): void
+    {
+        $this->setExpectedReturnValue(new \stdClass());
+        $this->expectException(\TypeError::class);
+        $this->handleRequest([], [
+            'num_players' => 3,
+            'player' => ['Amy', 'Ben', 'Charlie'],
+            'tileSets' => ['BaseGame' => 'on'],
+            'factionSets' => ['BaseGame' => 'on'],
+            'num_slices' => 3,
+            'num_factions' => 3,
+            'max_total' => 20,
+        ]);
     }
 
     private function settingsFromDispatchedGenerateDraft(): \App\Draft\Settings

@@ -145,11 +145,6 @@ class Settings
             throw InvalidDraftSettingsException::notEnoughFactionsForPlayers();
         }
 
-        $minimumMinorFactionPoolSize = count($this->playerNames) * 2;
-        if ($this->minorFactionsMode && $this->numberOfFactions < $minimumMinorFactionPoolSize) {
-            throw InvalidDraftSettingsException::notEnoughFactionsForMinorFactions($minimumMinorFactionPoolSize);
-        }
-
         return true;
     }
 

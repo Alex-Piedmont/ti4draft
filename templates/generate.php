@@ -191,7 +191,7 @@
                                 <input type="checkbox" name="minor_factions_on" id="minor_factions_toggle" value="on" /> Enabled
                             </label>
                             <p class="help minor_factions_only">
-                                The faction pool must contain at least twice the number of players so one eligible unselected faction remains for every player. Some exceptional factions remain playable but cannot be assigned as Minor Factions and do not count toward the eligible reserve.
+                                The requested faction count is the number of draftable choices. The enabled faction sets must additionally provide one eligible unused faction for every generated slice, including extra slice options. Each assigned home system is face up and counts toward that slice's values and limits.
                             </p>
                         </div>
                     </div>

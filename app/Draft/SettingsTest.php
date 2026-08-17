@@ -156,11 +156,11 @@ class SettingsTest extends TestCase
     }
 
     #[Test]
-    public function itAcceptsTheMinorFactionPoolSizeBoundary(): void
+    public function minorModeAcceptsOneDraftableFactionPerPlayer(): void
     {
         $settings = DraftSettingsFactory::make([
             'numberOfPlayers' => 6,
-            'numberOfFactions' => 12,
+            'numberOfFactions' => 6,
             'minorFactionsMode' => true,
         ]);
 
@@ -168,17 +168,17 @@ class SettingsTest extends TestCase
     }
 
     #[Test]
-    public function itRejectsAnUndersizedMinorFactionPool(): void
+    public function minorModeRejectsFewerDraftableFactionsThanPlayers(): void
     {
         $settings = DraftSettingsFactory::make([
             'numberOfPlayers' => 6,
-            'numberOfFactions' => 11,
+            'numberOfFactions' => 5,
             'minorFactionsMode' => true,
         ]);
 
         $this->expectException(InvalidDraftSettingsException::class);
         $this->expectExceptionMessage(
-            InvalidDraftSettingsException::notEnoughFactionsForMinorFactions(12)->getMessage(),
+            InvalidDraftSettingsException::notEnoughFactionsForPlayers()->getMessage(),
         );
 
         $settings->validate();
@@ -190,7 +190,7 @@ class SettingsTest extends TestCase
         $settings = DraftSettingsFactory::make([
             'numberOfPlayers' => 6,
             'numberOfFactions' => 6,
-            'minorFactionsMode' => false,
+            'minorFactionsMode' => true,
         ]);
 
         $this->assertTrue($settings->validate());
@@ -436,6 +436,7 @@ class SettingsTest extends TestCase
             'tileSets' => [Edition::BASE_GAME],
             'factionSets' => [Edition::BASE_GAME],
             'minorFactionsMode' => true,
+            'minimumLegendaryPlanets' => 0,
         ]);
         $this->assertTrue($minor->validate());
 
@@ -446,6 +447,7 @@ class SettingsTest extends TestCase
             'tileSets' => [Edition::BASE_GAME],
             'factionSets' => [Edition::BASE_GAME],
             'minorFactionsMode' => false,
+            'minimumLegendaryPlanets' => 0,
         ]);
         $this->expectException(InvalidDraftSettingsException::class);
         $ordinary->validate();
@@ -461,6 +463,7 @@ class SettingsTest extends TestCase
             'tileSets' => [Edition::BASE_GAME],
             'factionSets' => [Edition::BASE_GAME],
             'minorFactionsMode' => true,
+            'minimumLegendaryPlanets' => 0,
         ]);
 
         $this->expectException(InvalidDraftSettingsException::class);

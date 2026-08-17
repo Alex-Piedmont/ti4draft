@@ -5,8 +5,8 @@ const path = require('node:path');
 const vm = require('node:vm');
 const MinorFactions = require('../../js/minor-factions.js');
 
-test('minor factions requires twice the player count', () => {
-    assert.equal(MinorFactions.minimumFactionCount(6, true), 12);
+test('minor factions requires one draftable faction per player', () => {
+    assert.equal(MinorFactions.minimumFactionCount(6, true), 6);
 });
 
 test('ordinary drafts require one faction per player', () => {
@@ -18,12 +18,12 @@ test('invalid player counts do not produce a negative minimum', () => {
     assert.equal(MinorFactions.minimumFactionCount('invalid', true), 0);
 });
 
-test('minor factions uses balanced defaults for four retained systems', () => {
+test('minor factions retains the five-system slice defaults', () => {
     assert.deepEqual(MinorFactions.sliceConstraintDefaults(true), {
-        minimumInfluence: 2,
-        minimumResources: 1,
-        minimumTotal: 5,
-        maximumTotal: 10,
+        minimumInfluence: 4,
+        minimumResources: 2.5,
+        minimumTotal: 9,
+        maximumTotal: 13,
     });
 });
 
@@ -175,37 +175,39 @@ function browserHarness() {
     };
 }
 
-test('browser control updates the minimum and current value when player count changes', () => {
+test('browser control keeps the one-per-player minimum when player count changes', () => {
     const harness = browserHarness();
 
     harness.update();
-    assert.equal(harness.state.factionMinimum, 12);
-    assert.equal(harness.state.factionCount, '12');
+    assert.equal(harness.state.factionMinimum, 6);
+    assert.equal(harness.state.factionCount, '9');
     assert.equal(harness.state.guidanceVisible, true);
 
     harness.state.playerCount = '8';
     harness.update();
-    assert.equal(harness.state.factionMinimum, 16);
-    assert.equal(harness.state.factionCount, '16');
+    assert.equal(harness.state.factionMinimum, 8);
+    assert.equal(harness.state.factionCount, '9');
 });
 
-test('browser control applies and restores mode-specific slice defaults', () => {
+test('browser control preserves customized slice constraints across mode toggles', () => {
     const harness = browserHarness();
+    harness.state.constraints['#min_inf'] = '6';
+    harness.state.constraints['#min_total'] = '11';
 
     harness.update(true);
     assert.deepEqual(harness.state.constraints, {
-        '#min_inf': '2',
-        '#min_res': '1',
-        '#min_total': '5',
-        '#max_total': '10',
+        '#min_inf': '6',
+        '#min_res': '2.5',
+        '#min_total': '11',
+        '#max_total': '13',
     });
 
     harness.state.enabled = false;
     harness.update(true);
     assert.deepEqual(harness.state.constraints, {
-        '#min_inf': '4',
+        '#min_inf': '6',
         '#min_res': '2.5',
-        '#min_total': '9',
+        '#min_total': '11',
         '#max_total': '13',
     });
 });

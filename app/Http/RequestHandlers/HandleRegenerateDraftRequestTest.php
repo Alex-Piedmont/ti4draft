@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Http\RequestHandlers;
 
 use App\Draft\Commands\RegenerateDraft;
+use App\Draft\Commands\GenerateDraft;
+use App\Draft\Exceptions\InvalidDraftSettingsException;
 use App\Testing\FakesCommands;
+use App\Testing\Factories\DraftSettingsFactory;
 use App\Testing\RequestHandlerTestCase;
 use App\Testing\UsesTestDraft;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -51,8 +54,8 @@ class HandleRegenerateDraftRequestTest extends RequestHandlerTestCase
 
         yield 'When regenerating factions' => [
             'slices' => 'false',
-            'factions' => 'false',
-            'order' => 'true',
+            'factions' => 'true',
+            'order' => 'false',
         ];
 
         yield 'When regenerating player order' => [
@@ -82,5 +85,61 @@ class HandleRegenerateDraftRequestTest extends RequestHandlerTestCase
                 $this->assertSame($cmd->regenerateOrder, $order == 'true');
             },
         );
+    }
+
+    #[Test]
+    public function regenerationDomainFailuresReturn400WithoutOverwritingTheDraft(): void
+    {
+        app()->dontSpyOnDispatcher();
+        $draft = (new GenerateDraft(DraftSettingsFactory::make([
+            'playerNames' => ['Amy', 'Ben', 'Charlie'],
+            'presetDraftOrder' => true,
+            'numberOfFactions' => 6,
+            'numberOfSlices' => 4,
+            'minorFactionsMode' => true,
+            'seed' => 76543,
+            'minimumOptimalInfluence' => 0,
+            'minimumOptimalResources' => 0,
+            'minimumOptimalTotal' => 0,
+            'maximumOptimalTotal' => 100,
+            'minimumLegendaryPlanets' => 0,
+            'minimumTwoAlphaBetaWormholes' => false,
+            'maxOneWormholePerSlice' => false,
+        ])))->handle();
+        $draft->settings = DraftSettingsFactory::make([
+            'playerNames' => ['Amy', 'Ben', 'Charlie'],
+            'presetDraftOrder' => true,
+            'numberOfFactions' => 6,
+            'numberOfSlices' => 4,
+            'minorFactionsMode' => true,
+            'seed' => 76543,
+            'minimumOptimalInfluence' => 100,
+            'minimumOptimalResources' => 0,
+            'minimumOptimalTotal' => 0,
+            'maximumOptimalTotal' => 100,
+            'minimumLegendaryPlanets' => 0,
+            'minimumTwoAlphaBetaWormholes' => false,
+            'maxOneWormholePerSlice' => false,
+        ]);
+        app()->repository->save($draft);
+        $before = $draft->toFileContent();
+
+        try {
+            $response = $this->handleRequest([
+                'id' => $draft->id,
+                'slices' => 'true',
+                'factions' => 'false',
+                'order' => 'false',
+                'admin' => $draft->secrets->adminSecret,
+            ]);
+            $this->assertResponseCode(400, $response);
+            $this->assertStringContainsString(
+                InvalidDraftSettingsException::cannotGenerateSlices()->getMessage(),
+                $response->getBody(),
+            );
+            $this->assertSame($before, app()->repository->load($draft->id)->toFileContent());
+        } finally {
+            app()->repository->delete($draft->id);
+        }
     }
 }
