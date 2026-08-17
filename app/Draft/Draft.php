@@ -41,6 +41,12 @@ class Draft
         }, []);
 
         $settings = Settings::fromJson($data['config']);
+        $slices = self::slicesFromJson($data['slices'], $settings->minorFactionsMode);
+        $factions = self::factionsFromJson($data['factions']);
+
+        if ($settings->minorFactionsMode) {
+            self::validateMinorFactionState($slices, $factions, $settings);
+        }
 
         return new self(
             $data['id'],
@@ -48,11 +54,43 @@ class Draft
             $players,
             $settings,
             Secrets::fromJson($data['secrets']),
-            self::slicesFromJson($data['slices'], $settings->minorFactionsMode),
-            self::factionsFromJson($data['factions']),
+            $slices,
+            $factions,
             array_map(fn ($logData) => Pick::fromJson($logData), $data['draft']['log']),
             $data['draft']['current'] != null ? PlayerId::fromString($data['draft']['current']) : null,
         );
+    }
+
+    /**
+     * @param Slice[] $slices
+     * @param Faction[] $draftableFactions
+     */
+    private static function validateMinorFactionState(array $slices, array $draftableFactions, Settings $settings): void
+    {
+        $minorNames = [];
+        $draftableNames = array_map(fn (Faction $faction): string => $faction->name, $draftableFactions);
+
+        foreach ($slices as $slice) {
+            $minor = $slice->minorFaction;
+            if ($minor === null) {
+                throw new \InvalidArgumentException('Minor Factions draft is missing a persisted slice assignment');
+            }
+
+            $enabled = in_array($minor->faction->edition, $settings->factionSets, true)
+                || ($minor->faction->name === 'The Council Keleres' && $settings->includeCouncilKeleresFaction);
+            if (! $enabled) {
+                throw new \InvalidArgumentException('Persisted Minor Faction is not from an enabled faction set');
+            }
+
+            if (in_array($minor->faction->name, $minorNames, true)) {
+                throw new \InvalidArgumentException('Persisted Minor Factions must be unique');
+            }
+            if (in_array($minor->faction->name, $draftableNames, true)) {
+                throw new \InvalidArgumentException('Persisted Minor Faction overlaps the draftable faction pool');
+            }
+
+            $minorNames[] = $minor->faction->name;
+        }
     }
 
     /**
@@ -68,17 +106,15 @@ class Draft
                 $sliceData['tiles'],
             );
 
-            // Early Minor Factions drafts reserved the upper second-ring slot (index 4).
-            // Move that blue system to the official left-side slot when loading them.
-            if (
-                $minorFactionsMode &&
-                $tiles[Slice::EQUIDISTANT_INDEX]->tileType !== TileType::BLUE &&
-                $tiles[4]->tileType === TileType::BLUE
-            ) {
-                [$tiles[Slice::EQUIDISTANT_INDEX], $tiles[4]] = [$tiles[4], $tiles[Slice::EQUIDISTANT_INDEX]];
+            if ($minorFactionsMode && ! isset($sliceData['minor_faction'])) {
+                throw new \InvalidArgumentException('Minor Factions draft is missing a persisted slice assignment');
             }
 
-            return new Slice($tiles, $minorFactionsMode);
+            $minorFaction = isset($sliceData['minor_faction'])
+                ? MinorFaction::fromArray($sliceData['minor_faction'])
+                : null;
+
+            return new Slice($tiles, $minorFactionsMode, $minorFaction);
         }, $slicesData);
     }
 
@@ -102,6 +138,18 @@ class Draft
     public function toArray($includeSecrets = false): array
     {
         $data = $this->baseArray($includeSecrets);
+        $data['slices'] = array_map(function (Slice $slice): array {
+            $sliceData = $slice->toJson();
+            if ($slice->minorFaction !== null) {
+                $sliceData['minor_faction'] = $slice->minorFaction->toArray();
+                $sliceData['equidistant'] = [
+                    'index' => Slice::EQUIDISTANT_INDEX,
+                    ...Slice::EQUIDISTANT_COORDINATE,
+                ];
+            }
+
+            return $sliceData;
+        }, $this->slicePool);
         $data['minor_factions'] = (new MinorFactionAssignments(
             $this->settings->minorFactionsMode,
             $this->players,
@@ -123,7 +171,14 @@ class Draft
                 'current' => $this->currentPlayerId?->value,
             ],
             'factions' => array_map(fn (Faction $f) => $f->name, $this->factionPool),
-            'slices' => array_map(fn (Slice $s) => ['tiles' => $s->tileIds()], $this->slicePool),
+            'slices' => array_map(function (Slice $slice): array {
+                $data = ['tiles' => $slice->tileIds()];
+                if ($slice->minorFaction !== null) {
+                    $data['minor_faction'] = $slice->minorFaction->toPersistedArray();
+                }
+
+                return $data;
+            }, $this->slicePool),
         ];
 
         if ($includeSecrets) {

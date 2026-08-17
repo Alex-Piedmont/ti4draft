@@ -13,6 +13,7 @@ class Slice
 {
     /** The left-side second-ring system in the persisted slice geometry. */
     public const EQUIDISTANT_INDEX = 3;
+    public const EQUIDISTANT_COORDINATE = ['q' => -1, 'r' => 0];
 
     protected const MAX_ARRANGEMENT_TRIES = 100;
 
@@ -40,10 +41,15 @@ class Slice
     function __construct(
         public array $tiles,
         public readonly bool $minorFactionsMode = false,
+        public readonly ?MinorFaction $minorFaction = null,
     ) {
         // if the slice doesn't have 5 tiles in it, something went awry
         if (count($this->tiles) != 5) {
             throw new \Exception('Slice does not have enough tiles');
+        }
+
+        if ($this->minorFaction !== null && $this->tiles[self::EQUIDISTANT_INDEX]->id !== $this->minorFaction->homeSystem->id) {
+            throw new \InvalidArgumentException('Minor Faction home system must occupy the left second-ring slot');
         }
 
         $this->refreshSummary();
@@ -213,7 +219,7 @@ class Slice
     /** @return array<Tile> */
     public function effectiveTiles(): array
     {
-        if (! $this->minorFactionsMode) {
+        if (! $this->minorFactionsMode || $this->minorFaction !== null) {
             return $this->tiles;
         }
 

@@ -349,6 +349,25 @@ class SliceTest extends TestCase
     }
 
     #[Test]
+    public function persistedMinorHomeIsIncludedInEffectiveValuesAndSpecials(): void
+    {
+        $minor = MinorFaction::fromFaction(\App\TwilightImperium\Faction::all()["Sardakk N'orr"]);
+        $slice = new Slice([
+            TileFactory::make([PlanetFactory::make(['resources' => 2])]),
+            TileFactory::make(),
+            TileFactory::make(),
+            $minor->homeSystem,
+            TileFactory::make(),
+        ], true, $minor);
+
+        $this->assertCount(5, $slice->effectiveTiles());
+        $this->assertSame(3, Slice::EQUIDISTANT_INDEX);
+        $this->assertSame($minor->homeSystem->id, $slice->tileIds()[Slice::EQUIDISTANT_INDEX]);
+        $this->assertSame(array_sum(array_map(fn ($tile) => $tile->totalResources, $slice->tiles)), $slice->totalResources);
+        $this->assertSame(array_sum(array_map(fn ($tile) => $tile->totalInfluence, $slice->tiles)), $slice->totalInfluence);
+    }
+
+    #[Test]
     public function minorFactionsArrangementPlacesABlueTileAtTheEquidistantIndex(): void
     {
         $tiles = array_map(fn () => TileFactory::make(), range(1, 5));

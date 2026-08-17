@@ -85,8 +85,8 @@ class DraftTest extends TestCase
         foreach($draft->factionPool as $faction) {
             $this->assertContains($faction->name, $data['factions']);
         }
-        foreach($draft->slicePool as $slice) {
-            $this->assertContains(['tiles' => $slice->tileIds()], $data['slices']);
+        foreach($draft->slicePool as $index => $slice) {
+            $this->assertSame($slice->tileIds(), $data['slices'][$index]['tiles']);
         }
     }
 
@@ -127,16 +127,15 @@ class DraftTest extends TestCase
     }
 
     #[Test]
-    public function publicOutputDerivesMinorAssignmentsButSavedOutputDoesNotPersistThem(): void
+    public function minorFactionAssignmentsArePersistedPerSlice(): void
     {
         $draft = $this->completedMinorFactionDraft();
-
-        $public = $draft->toArray();
         $saved = json_decode($draft->toFileContent(), true);
 
-        $this->assertSame(MinorFactionAssignments::STATUS_RESOLVED, $public['minor_factions']['status']);
-        $this->assertCount(3, $public['minor_factions']['assignments']);
-        $this->assertArrayNotHasKey('minor_factions', $saved);
+        $this->assertSame(
+            $draft->slicePool[0]->minorFaction->toPersistedArray(),
+            $saved['slices'][0]['minor_faction'],
+        );
         $this->assertTrue($saved['config']['minor_factions']);
     }
 
@@ -144,38 +143,34 @@ class DraftTest extends TestCase
     public function minorAssignmentsAreStableAfterSavingAndReloading(): void
     {
         $draft = $this->completedMinorFactionDraft();
-        $before = $draft->toArray()['minor_factions'];
+        $before = $draft->slicePool[0]->minorFaction->toArray();
 
         $reloaded = Draft::fromJson(json_decode($draft->toFileContent(), true));
 
-        $this->assertSame($before, $reloaded->toArray()['minor_factions']);
+        $this->assertSame($before, $reloaded->slicePool[0]->minorFaction->toArray());
+        $this->assertSame($draft->slicePool[0]->tileIds(), $reloaded->slicePool[0]->tileIds());
         $this->assertTrue($reloaded->slicePool[0]->minorFactionsMode);
     }
 
     #[Test]
-    public function oldMinorFactionDraftsMoveTheReservedBlueTileToTheLeftSecondRingSlot(): void
+    public function modeEnabledDraftsRequirePersistedAssignments(): void
     {
         $saved = json_decode($this->completedMinorFactionDraft()->toFileContent(), true);
-        $saved['slices'][0]['tiles'] = ['64', '33', '42', '67', '59'];
+        unset($saved['slices'][0]['minor_faction']);
 
-        $reloaded = Draft::fromJson($saved);
-
-        $this->assertSame(['64', '33', '42', '59', '67'], $reloaded->slicePool[0]->tileIds());
-        $this->assertSame(TileType::BLUE, $reloaded->slicePool[0]->tiles[Slice::EQUIDISTANT_INDEX]->tileType);
+        $this->expectException(\InvalidArgumentException::class);
+        Draft::fromJson($saved);
     }
 
     #[Test]
-    public function minorAssignmentsDisappearAfterUndoAndReturnIdenticallyAfterRecompletion(): void
+    public function minorAssignmentsRemainStableAcrossPlayerChanges(): void
     {
         $draft = $this->completedMinorFactionDraft();
-        $resolved = $draft->toArray()['minor_factions'];
+        $resolved = $draft->slicePool[0]->minorFaction->toArray();
         $player = $draft->players['b'];
 
         $draft->updatePlayerData($player->unpick(PickCategory::FACTION));
-        $pending = $draft->toArray()['minor_factions'];
-
-        $this->assertSame(MinorFactionAssignments::STATUS_PENDING, $pending['status']);
-        $this->assertSame([], $pending['assignments']);
+        $this->assertSame($resolved, $draft->slicePool[0]->minorFaction->toArray());
 
         $draft->updatePlayerData(
             $draft->players['b']->pick(new Pick(
@@ -185,33 +180,40 @@ class DraftTest extends TestCase
             )),
         );
 
-        $this->assertSame($resolved, $draft->toArray()['minor_factions']);
+        $this->assertSame($resolved, $draft->slicePool[0]->minorFaction->toArray());
     }
 
     #[Test]
-    public function malformedMinorFactionDraftCanBePersistedAndReportsInvalidWithoutPartialAssignments(): void
+    public function publicSliceAssignmentAndTotalsAreStableAcrossPollAndUndo(): void
     {
         $draft = $this->completedMinorFactionDraft();
-        $draft->factionPool = array_slice($draft->factionPool, 0, 4);
+        $before = $draft->toArray()['slices'][0];
+        $player = $draft->players['b'];
 
-        $savedContent = $draft->toFileContent();
-        $public = $draft->toArray();
+        $this->assertSame(['index' => 3, 'q' => -1, 'r' => 0], $before['equidistant']);
+        $this->assertSame(
+            $draft->slicePool[0]->minorFaction->homeSystem->id,
+            $before['tiles'][Slice::EQUIDISTANT_INDEX],
+        );
 
-        $this->assertJson($savedContent);
-        $this->assertSame([
-            'enabled' => true,
-            'equidistant_index' => Slice::EQUIDISTANT_INDEX,
-            'status' => MinorFactionAssignments::STATUS_INVALID,
-            'assignments' => [],
-            'error' => MinorFactionAssignments::ERROR_INSUFFICIENT_ELIGIBLE_CANDIDATES,
-        ], $public['minor_factions']);
+        $draft->updatePlayerData($player->unpick(PickCategory::FACTION));
+        $afterUndo = $draft->toArray()['slices'][0];
+        $afterPoll = $draft->toArray()['slices'][0];
 
-        $saved = json_decode($savedContent, true);
-        $this->assertTrue($saved['config']['minor_factions']);
-        $this->assertArrayNotHasKey('minor_factions', $saved);
+        $this->assertSame(json_encode($before['minor_faction']), json_encode($afterUndo['minor_faction']));
+        $this->assertSame($before, $afterUndo);
+        $this->assertSame($before, $afterPoll);
+    }
 
-        $reloaded = Draft::fromJson($saved);
-        $this->assertSame($public['minor_factions'], $reloaded->toArray()['minor_factions']);
+    #[Test]
+    public function mismatchedPersistedMinorFactionStateFailsClosed(): void
+    {
+        $draft = $this->completedMinorFactionDraft();
+        $saved = json_decode($draft->toFileContent(), true);
+        $saved['slices'][0]['minor_faction']['tile_id'] = '1';
+
+        $this->expectException(\InvalidArgumentException::class);
+        Draft::fromJson($saved);
     }
 
     private function completedMinorFactionDraft(): Draft
@@ -224,6 +226,8 @@ class DraftTest extends TestCase
             'c' => new Player(PlayerId::fromString('c'), 'Carol', pickedPosition: '1', pickedFaction: 'The Emirates of Hacan'),
         ];
 
+        $minorFaction = MinorFaction::fromFaction($factions["Sardakk N'orr"]);
+
         return new Draft(
             'minor-test',
             true,
@@ -234,12 +238,18 @@ class DraftTest extends TestCase
                 'minorFactionsMode' => true,
             ]),
             new Secrets('secret'),
-            [new Slice([$tiles['64'], $tiles['33'], $tiles['42'], $tiles['59'], $tiles['67']], true)],
+            [new Slice([
+                $tiles['64'],
+                $tiles['33'],
+                $tiles['42'],
+                $minorFaction->homeSystem,
+                $tiles['67'],
+            ], true, $minorFaction)],
             [
                 $factions['The Arborec'],
                 $factions['The Barony of Letnev'],
                 $factions['The Emirates of Hacan'],
-                $factions["Sardakk N'orr"],
+                $factions['The Xxcha Kingdom'],
                 $factions['The Clan of Saar'],
                 $factions['The Embers of Muaat'],
             ],
