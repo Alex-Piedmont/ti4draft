@@ -11,6 +11,7 @@ use App\Testing\Factories\DraftSettingsFactory;
 use App\Testing\TestCase;
 use App\Testing\TestSets;
 use App\TwilightImperium\Edition;
+use App\TwilightImperium\Faction;
 use App\TwilightImperium\Tile;
 use App\TwilightImperium\TileType;
 use App\TwilightImperium\Wormhole;
@@ -289,7 +290,7 @@ class GenerateSlicePoolTest extends TestCase
     }
 
     #[Test]
-    public function minorFactionsGeneratedSlicesReserveABlueEquidistantTile(): void
+    public function minorFactionsGeneratedSlicesContainTwoBlueTwoRedAndTheAssignedHome(): void
     {
         $settings = DraftSettingsFactory::make([
             'numberOfPlayers' => 6,
@@ -305,12 +306,15 @@ class GenerateSlicePoolTest extends TestCase
             'seed' => 321,
         ]);
 
-        $slices = (new GenerateSlicePool($settings))->handle();
+        $slices = (new GenerateSlicePool($settings, $this->minorFactions(6)))->handle();
 
-        foreach ($slices as $slice) {
+        foreach ($slices as $index => $slice) {
             $this->assertTrue($slice->minorFactionsMode);
-            $this->assertSame(TileType::BLUE, $slice->tiles[Slice::EQUIDISTANT_INDEX]->tileType);
-            $this->assertCount(4, $slice->effectiveTiles());
+            $this->assertSame(TileType::GREEN, $slice->tiles[Slice::EQUIDISTANT_INDEX]->tileType);
+            $this->assertSame($this->minorFactions(6)[$index]->name, $slice->minorFaction->faction->name);
+            $this->assertCount(2, array_filter($slice->tiles, fn (Tile $tile) => $tile->tileType === TileType::BLUE));
+            $this->assertCount(2, array_filter($slice->tiles, fn (Tile $tile) => $tile->tileType === TileType::RED));
+            $this->assertCount(5, $slice->effectiveTiles());
             $this->assertCount(5, $slice->tileIds());
         }
     }
@@ -322,7 +326,7 @@ class GenerateSlicePoolTest extends TestCase
             'numberOfSlices' => 1,
             'customSlices' => [['64', '33', '42', '67', '59']],
             'minorFactionsMode' => true,
-        ]));
+        ]), $this->minorFactions(1));
 
         $this->expectException(InvalidDraftSettingsException::class);
         $this->expectExceptionMessage(
@@ -340,11 +344,19 @@ class GenerateSlicePoolTest extends TestCase
             'numberOfSlices' => 1,
             'customSlices' => [$ids],
             'minorFactionsMode' => true,
-        ])))->handle()[0];
+            'minimumOptimalInfluence' => 0,
+            'minimumOptimalResources' => 0,
+            'minimumOptimalTotal' => 0,
+            'maximumOptimalTotal' => 100,
+            'minimumLegendaryPlanets' => 0,
+            'minimumTwoAlphaBetaWormholes' => false,
+            'maxOneWormholePerSlice' => false,
+        ]), $this->minorFactions(1)))->handle()[0];
 
-        $this->assertSame($ids, $slice->tileIds());
-        $this->assertCount(4, $slice->effectiveTiles());
-        $this->assertSame(TileType::BLUE, $slice->tiles[Slice::EQUIDISTANT_INDEX]->tileType);
+        $this->assertNotSame($ids[3], $slice->tileIds()[3]);
+        $this->assertSame($slice->minorFaction->homeSystem->id, $slice->tileIds()[3]);
+        $this->assertCount(5, $slice->effectiveTiles());
+        $this->assertSame(TileType::GREEN, $slice->tiles[Slice::EQUIDISTANT_INDEX]->tileType);
     }
 
     public static function supportedPlayerCounts(): iterable
@@ -372,14 +384,14 @@ class GenerateSlicePoolTest extends TestCase
             'seed' => 9000 + $playerCount,
         ]);
 
-        $slices = (new GenerateSlicePool($settings))->handle();
+        $slices = (new GenerateSlicePool($settings, $this->minorFactions($playerCount)))->handle();
 
         $this->assertCount($playerCount, $slices);
         foreach ($slices as $slice) {
             $this->assertSame(3, Slice::EQUIDISTANT_INDEX);
-            $this->assertSame(TileType::BLUE, $slice->tiles[Slice::EQUIDISTANT_INDEX]->tileType);
+            $this->assertSame(TileType::GREEN, $slice->tiles[Slice::EQUIDISTANT_INDEX]->tileType);
             $this->assertCount(5, $slice->tileIds());
-            $this->assertCount(4, $slice->effectiveTiles());
+            $this->assertCount(5, $slice->effectiveTiles());
         }
     }
 
@@ -400,15 +412,15 @@ class GenerateSlicePoolTest extends TestCase
             'seed' => 654321,
         ];
 
-        $first = (new GenerateSlicePool(DraftSettingsFactory::make($properties)))->handle();
-        $second = (new GenerateSlicePool(DraftSettingsFactory::make($properties)))->handle();
+        $first = (new GenerateSlicePool(DraftSettingsFactory::make($properties), $this->minorFactions(6)))->handle();
+        $second = (new GenerateSlicePool(DraftSettingsFactory::make($properties), $this->minorFactions(6)))->handle();
 
         $this->assertSame(
             array_map(static fn (Slice $slice): array => $slice->tileIds(), $first),
             array_map(static fn (Slice $slice): array => $slice->tileIds(), $second),
         );
         foreach ($first as $slice) {
-            $this->assertSame(TileType::BLUE, $slice->tiles[Slice::EQUIDISTANT_INDEX]->tileType);
+            $this->assertSame(TileType::GREEN, $slice->tiles[Slice::EQUIDISTANT_INDEX]->tileType);
         }
     }
 
@@ -429,7 +441,7 @@ class GenerateSlicePoolTest extends TestCase
             'seed' => 4242,
         ]);
 
-        $slices = (new GenerateSlicePool($settings))->handle();
+        $slices = (new GenerateSlicePool($settings, $this->minorFactions(6)))->handle();
         $effectiveTiles = array_merge(...array_map(
             static fn (Slice $slice): array => $slice->effectiveTiles(),
             $slices,
@@ -456,7 +468,7 @@ class GenerateSlicePoolTest extends TestCase
             'numberOfSlices' => 1,
             'customSlices' => [['64', '33', '42', '67', '1']],
             'minorFactionsMode' => true,
-        ]));
+        ]), $this->minorFactions(1));
 
         $this->expectException(InvalidDraftSettingsException::class);
         $this->expectExceptionMessage(
@@ -464,5 +476,37 @@ class GenerateSlicePoolTest extends TestCase
         );
 
         $generator->handle();
+    }
+
+    #[Test]
+    public function customMinorSliceIsValidatedAfterItsHomeReplacement(): void
+    {
+        $generator = new GenerateSlicePool(DraftSettingsFactory::make([
+            'numberOfPlayers' => 3,
+            'numberOfFactions' => 6,
+            'numberOfSlices' => 1,
+            'customSlices' => [['64', '33', '42', '59', '67']],
+            'minorFactionsMode' => true,
+            'minimumOptimalInfluence' => 100,
+            'minimumOptimalResources' => 0,
+            'minimumOptimalTotal' => 0,
+            'maximumOptimalTotal' => 100,
+            'minimumLegendaryPlanets' => 0,
+            'minimumTwoAlphaBetaWormholes' => false,
+            'maxOneWormholePerSlice' => false,
+        ]), $this->minorFactions(1));
+
+        $this->expectException(InvalidDraftSettingsException::class);
+        $this->expectExceptionMessage(InvalidDraftSettingsException::cannotGenerateSlices()->getMessage());
+        $generator->handle();
+    }
+
+    /** @return Faction[] */
+    private function minorFactions(int $count): array
+    {
+        return array_slice(array_values(array_filter(
+            Faction::all(),
+            fn (Faction $faction): bool => $faction->minorFactionEligible,
+        )), 0, $count);
     }
 }

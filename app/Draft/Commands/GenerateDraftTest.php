@@ -9,6 +9,8 @@ use App\Shared\Command;
 use App\Testing\Factories\DraftSettingsFactory;
 use App\Testing\TestCase;
 use App\TwilightImperium\AllianceTeamMode;
+use App\TwilightImperium\Edition;
+use App\Draft\Slice;
 use PHPUnit\Framework\Attributes\Test;
 
 class GenerateDraftTest extends TestCase
@@ -33,6 +35,91 @@ class GenerateDraftTest extends TestCase
         $this->assertNotEmpty($draft->slicePool);
         $this->assertNotEmpty($draft->factionPool);
         $this->assertEquals($draft->currentPlayerId, array_values($draft->players)[0]->id);
+    }
+
+    #[Test]
+    public function minorModeGeneratesAnExactDisjointPartitionAndAssignedSlices(): void
+    {
+        $settings = DraftSettingsFactory::make([
+            'numberOfPlayers' => 3,
+            'numberOfFactions' => 6,
+            'numberOfSlices' => 4,
+            'minorFactionsMode' => true,
+            'seed' => 12345,
+            'minimumOptimalInfluence' => 0,
+            'minimumOptimalResources' => 0,
+            'minimumOptimalTotal' => 0,
+            'maximumOptimalTotal' => 100,
+            'minimumLegendaryPlanets' => 0,
+            'minimumTwoAlphaBetaWormholes' => false,
+            'maxOneWormholePerSlice' => false,
+        ]);
+
+        $draft = (new GenerateDraft($settings))->handle();
+        $draftableNames = array_map(fn ($faction) => $faction->name, $draft->factionPool);
+        $minorNames = array_map(fn (Slice $slice) => $slice->minorFaction->faction->name, $draft->slicePool);
+
+        $this->assertCount(6, $draftableNames);
+        $this->assertCount(4, $minorNames);
+        $this->assertSame([], array_intersect($draftableNames, $minorNames));
+        foreach ($draft->slicePool as $slice) {
+            $this->assertSame($slice->minorFaction->homeSystem->id, $slice->tileIds()[Slice::EQUIDISTANT_INDEX]);
+            $this->assertCount(5, $slice->effectiveTiles());
+        }
+    }
+
+    #[Test]
+    public function identicalMinorSettingsReproduceTheCompleteGeneratedGraph(): void
+    {
+        $settings = [
+            'playerNames' => ['Alice', 'Bob', 'Carol'],
+            'presetDraftOrder' => true,
+            'numberOfFactions' => 6,
+            'numberOfSlices' => 4,
+            'minorFactionsMode' => true,
+            'seed' => 112233,
+            'minimumOptimalInfluence' => 0,
+            'minimumOptimalResources' => 0,
+            'minimumOptimalTotal' => 0,
+            'maximumOptimalTotal' => 100,
+            'minimumLegendaryPlanets' => 0,
+            'minimumTwoAlphaBetaWormholes' => false,
+            'maxOneWormholePerSlice' => false,
+        ];
+        $first = (new GenerateDraft(DraftSettingsFactory::make($settings)))->handle();
+        $second = (new GenerateDraft(DraftSettingsFactory::make($settings)))->handle();
+
+        $graph = fn ($draft): array => [
+            'players' => array_values(array_map(fn ($player) => $player->name, $draft->players)),
+            'draftable' => array_map(fn ($faction) => $faction->name, $draft->factionPool),
+            'slices' => array_map(fn (Slice $slice) => $slice->tileIds(), $draft->slicePool),
+            'minors' => array_map(fn (Slice $slice) => $slice->minorFaction->faction->name, $draft->slicePool),
+        ];
+        $this->assertSame($graph($first), $graph($second));
+    }
+
+    #[Test]
+    public function failedInitialMinorGenerationCreatesNoRepositoryArtifact(): void
+    {
+        $before = glob(env('STORAGE_PATH') . '/draft_*.json') ?: [];
+        $settings = DraftSettingsFactory::make([
+            'numberOfPlayers' => 3,
+            'numberOfFactions' => 6,
+            'numberOfSlices' => 4,
+            'minorFactionsMode' => true,
+            'factionSets' => [Edition::THUNDERS_EDGE],
+            'seed' => 999,
+        ]);
+
+        $failure = null;
+        try {
+            (new GenerateDraft($settings))->handle();
+        } catch (\App\Draft\Exceptions\InvalidDraftSettingsException $exception) {
+            $failure = $exception;
+        }
+
+        $this->assertNotNull($failure, 'Impossible generation unexpectedly succeeded');
+        $this->assertSame($before, glob(env('STORAGE_PATH') . '/draft_*.json') ?: []);
     }
 
     #[Test]

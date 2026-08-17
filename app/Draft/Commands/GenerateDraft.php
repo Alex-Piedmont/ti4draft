@@ -26,8 +26,8 @@ class GenerateDraft implements Command
         $players = $this->generatePlayerData();
 
         // not going through dispatch method because if we're faking it then that sucks
-        $slices = (new GenerateSlicePool($this->settings))->handle();
-        $factions = (new GenerateFactionPool($this->settings))->handle();
+        $partition = (new GenerateFactionPool($this->settings))->handle();
+        $slices = (new GenerateSlicePool($this->settings, $partition->minors))->handle();
 
         return new Draft(
             DraftId::generate(),
@@ -36,7 +36,7 @@ class GenerateDraft implements Command
             $this->settings,
             $this->generateSecrets(),
             $slices,
-            $factions,
+            $partition->draftable,
             [],
             PlayerId::fromString(array_key_first($players)),
         );

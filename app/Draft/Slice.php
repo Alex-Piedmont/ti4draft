@@ -152,12 +152,12 @@ class Slice
         $tries = 0;
         // always shuffle at least once
         $seed->setForSlices($tries);
-        shuffle($this->tiles);
+        $this->shuffleForArrangement();
 
         while (! $this->tileArrangementIsValid()) {
             $tries++;
             $seed->setForSlices($tries);
-            shuffle($this->tiles);
+            $this->shuffleForArrangement();
 
             if ($tries > self::MAX_ARRANGEMENT_TRIES) {
                 $this->refreshSummary();
@@ -169,6 +169,27 @@ class Slice
         $this->refreshSummary();
 
         return true;
+    }
+
+    private function shuffleForArrangement(): void
+    {
+        if ($this->minorFaction === null) {
+            shuffle($this->tiles);
+
+            return;
+        }
+
+        $ordinaryTiles = $this->tiles;
+        unset($ordinaryTiles[self::EQUIDISTANT_INDEX]);
+        $ordinaryTiles = array_values($ordinaryTiles);
+        shuffle($ordinaryTiles);
+        $this->tiles = [
+            $ordinaryTiles[0],
+            $ordinaryTiles[1],
+            $ordinaryTiles[2],
+            $this->minorFaction->homeSystem,
+            $ordinaryTiles[3],
+        ];
     }
 
     /**
@@ -192,7 +213,11 @@ class Slice
     public function tileArrangementIsValid(): bool
     {
 
-        if ($this->minorFactionsMode && $this->tiles[self::EQUIDISTANT_INDEX]->tileType !== TileType::BLUE) {
+        if ($this->minorFaction !== null && $this->tiles[self::EQUIDISTANT_INDEX]->id !== $this->minorFaction->homeSystem->id) {
+            return false;
+        }
+
+        if ($this->minorFactionsMode && $this->minorFaction === null && $this->tiles[self::EQUIDISTANT_INDEX]->tileType !== TileType::BLUE) {
             return false;
         }
 

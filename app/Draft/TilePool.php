@@ -36,6 +36,21 @@ class TilePool
         );
     }
 
+    public function sliceForMinorFactions(int $numberOfSlices): TilePool
+    {
+        $blueTiles = array_merge($this->highTier, $this->midTier, $this->lowTier);
+        shuffle($blueTiles);
+        $redTiles = $this->redTier;
+        shuffle($redTiles);
+
+        return new TilePool(
+            array_slice($blueTiles, 0, $numberOfSlices * 2),
+            [],
+            [],
+            array_slice($redTiles, 0, $numberOfSlices * 2),
+        );
+    }
+
     /**
      * @return array<string>
      */

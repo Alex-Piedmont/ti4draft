@@ -25,8 +25,14 @@ class RegenerateDraft implements Command
             throw new \Exception('Cannot regenerate ongoing draft');
         }
 
-        // generate new seed to use for the reshuffle
+        // Generate every requested replacement before mutating the draft so a
+        // later validation failure cannot leave an in-memory partial result.
         $seed = new Seed();
+        $settings = $this->draft->settings->withNewSeed($seed);
+        $newPlayers = $this->draft->players;
+        $newCurrentPlayerId = $this->draft->currentPlayerId;
+        $newSlices = $this->draft->slicePool;
+        $newFactions = $this->draft->factionPool;
 
         if ($this->regenerateOrder) {
             $seed->setForPlayerOrder();
@@ -36,19 +42,28 @@ class RegenerateDraft implements Command
             foreach ($order as $key) {
                 $newPlayers[$key] = $this->draft->players[$key];
             }
-            $this->draft->players = $newPlayers;
-            $this->draft->updateCurrentPlayer();
+            $newCurrentPlayerId = \App\Draft\PlayerId::fromString(array_key_first($newPlayers));
         }
 
-        if ($this->regenerateSlices) {
-            $slices = (new GenerateSlicePool($this->draft->settings->withNewSeed($seed)))->handle();
-            $this->draft->slicePool = $slices;
+        $regenerateCoupledMinorState = $settings->minorFactionsMode && ($this->regenerateSlices || $this->regenerateFactions);
+        if ($regenerateCoupledMinorState) {
+            $partition = (new GenerateFactionPool($settings))->handle();
+            $newSlices = (new GenerateSlicePool($settings, $partition->minors))->handle();
+            $newFactions = $partition->draftable;
+        } else {
+            if ($this->regenerateSlices) {
+                $newSlices = (new GenerateSlicePool($settings))->handle();
+            }
+            if ($this->regenerateFactions) {
+                $newFactions = (new GenerateFactionPool($settings))->handle()->draftable;
+            }
         }
 
-        if ($this->regenerateFactions) {
-            $factions = (new GenerateFactionPool($this->draft->settings->withNewSeed($seed)))->handle();
-            $this->draft->factionPool = $factions;
-        }
+        $this->draft->settings = $settings;
+        $this->draft->players = $newPlayers;
+        $this->draft->currentPlayerId = $newCurrentPlayerId;
+        $this->draft->slicePool = $newSlices;
+        $this->draft->factionPool = $newFactions;
 
         app()->repository->save($this->draft);
 

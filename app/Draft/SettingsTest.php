@@ -425,4 +425,66 @@ class SettingsTest extends TestCase
             $this->assertNull($draftSettings->allianceForceDoublePicks);
         }
     }
+
+    #[Test]
+    public function minorModeUsesTwoBlueTwoRedCapacityWithoutTheOrdinaryBaseCap(): void
+    {
+        $minor = DraftSettingsFactory::make([
+            'numberOfPlayers' => 3,
+            'numberOfFactions' => 6,
+            'numberOfSlices' => 6,
+            'tileSets' => [Edition::BASE_GAME],
+            'factionSets' => [Edition::BASE_GAME],
+            'minorFactionsMode' => true,
+        ]);
+        $this->assertTrue($minor->validate());
+
+        $ordinary = DraftSettingsFactory::make([
+            'numberOfPlayers' => 3,
+            'numberOfFactions' => 6,
+            'numberOfSlices' => 6,
+            'tileSets' => [Edition::BASE_GAME],
+            'factionSets' => [Edition::BASE_GAME],
+            'minorFactionsMode' => false,
+        ]);
+        $this->expectException(InvalidDraftSettingsException::class);
+        $ordinary->validate();
+    }
+
+    #[Test]
+    public function minorModeRejectsOneSliceAboveTwoBlueTwoRedCapacity(): void
+    {
+        $settings = DraftSettingsFactory::make([
+            'numberOfPlayers' => 3,
+            'numberOfFactions' => 14,
+            'numberOfSlices' => 7,
+            'tileSets' => [Edition::BASE_GAME],
+            'factionSets' => [Edition::BASE_GAME],
+            'minorFactionsMode' => true,
+        ]);
+
+        $this->expectException(InvalidDraftSettingsException::class);
+        $this->expectExceptionMessage(InvalidDraftSettingsException::notEnoughTilesForSlices(6)->getMessage());
+        $settings->validate();
+    }
+
+    #[Test]
+    public function minorCustomSliceRowsMustExactlyMatchTheConfiguredCount(): void
+    {
+        foreach ([2, 4] as $rowCount) {
+            $settings = DraftSettingsFactory::make([
+                'numberOfPlayers' => 3,
+                'numberOfFactions' => 6,
+                'numberOfSlices' => 3,
+                'minorFactionsMode' => true,
+                'customSlices' => array_fill(0, $rowCount, ['64', '33', '42', '59', '67']),
+            ]);
+            try {
+                $settings->validate();
+                $this->fail('Mismatched custom slice count was accepted');
+            } catch (InvalidDraftSettingsException $exception) {
+                $this->assertSame(InvalidDraftSettingsException::invalidCustomSlices()->getMessage(), $exception->getMessage());
+            }
+        }
+    }
 }

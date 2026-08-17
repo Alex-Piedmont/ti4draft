@@ -161,10 +161,11 @@ class Settings
         $redTiles = array_reduce($this->tileSets, fn ($sum, Edition $e) => $sum + $e->redTileCount(), 0);
         $legendaryPlanets = array_reduce($this->tileSets, fn ($sum, Edition $e) => $sum + $e->legendaryPlanetCount(), 0);
 
-        $maxSlices = min(floor($blueTiles / 3), floor($redTiles / 2));
+        $blueTilesPerSlice = $this->minorFactionsMode ? 2 : 3;
+        $maxSlices = min(floor($blueTiles / $blueTilesPerSlice), floor($redTiles / 2));
 
         // @todo don't hardcode this in, but use the tile-selection
-        if ($this->numberOfSlices > 5 && $this->tileSets == [Edition::BASE_GAME]) {
+        if (! $this->minorFactionsMode && $this->numberOfSlices > 5 && $this->tileSets == [Edition::BASE_GAME]) {
             throw InvalidDraftSettingsException::notEnoughTilesForSlices(5);
         }
 
@@ -205,6 +206,9 @@ class Settings
     protected function validateCustomSlices(): bool
     {
         if (! empty($this->customSlices)) {
+            if ($this->minorFactionsMode && count($this->customSlices) !== $this->numberOfSlices) {
+                throw InvalidDraftSettingsException::invalidCustomSlices();
+            }
             if (count($this->customSlices) < count($this->playerNames)) {
                 throw InvalidDraftSettingsException::notEnoughCustomSlices();
             }
