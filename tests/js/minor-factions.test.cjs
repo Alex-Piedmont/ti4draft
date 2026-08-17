@@ -36,75 +36,64 @@ test('ordinary drafts retain the five-system slice defaults', () => {
     });
 });
 
-test('resolved assignments replace only the server-described equidistant index', () => {
-    const mode = {
-        enabled: true,
-        equidistant_index: 3,
-        status: 'resolved',
-        assignments: [{ position: 2, faction: 'The Arborec', home_system: '5' }],
+test('persisted assignments render only at their server-described equidistant index', () => {
+    const slice = {
+        tiles: ['19', '20', '21', '5', '22'],
+        minor_faction: { name: 'The Arborec', tile_id: '5', render_token: '5' },
+        equidistant: { index: 3, q: -1, r: 0 },
     };
 
-    assert.deepEqual(MinorFactions.resolveSliceTile(mode, 2, 3, '99'), {
+    assert.deepEqual(MinorFactions.resolveSliceTile(slice, 3), {
         tile: '5',
         label: 'The Arborec',
         minor: true,
     });
-    assert.deepEqual(MinorFactions.resolveSliceTile(mode, 2, 4, '98'), {
-        tile: '98',
+    assert.deepEqual(MinorFactions.resolveSliceTile(slice, 4), {
+        tile: '22',
         label: null,
         minor: false,
     });
 });
 
-test('pending and invalid assignments preserve an empty reserved coordinate', () => {
-    for (const status of ['pending', 'invalid']) {
-        const result = MinorFactions.resolveSliceTile({
-            enabled: true,
-            equidistant_index: 3,
-            status,
-            assignments: [],
-        }, 0, 3, '99');
-
-        assert.deepEqual(result, { tile: 0, label: 'Minor Faction', minor: true });
-    }
+test('ordinary slices preserve their original tile', () => {
+    assert.deepEqual(MinorFactions.resolveSliceTile({ tiles: ['19', '20', '21', '99', '22'] }, 3), {
+        tile: '99', label: null, minor: false,
+    });
 });
 
-test('disabled mode preserves the original tile', () => {
-    assert.deepEqual(MinorFactions.resolveSliceTile({
-        enabled: false,
-        equidistant_index: 3,
-        status: 'pending',
-        assignments: [],
-    }, 0, 3, '99'), { tile: '99', label: null, minor: false });
+test('enabled payloads missing their persisted assignment fail closed', () => {
+    assert.throws(
+        () => MinorFactions.resolveSliceTile({ tiles: ['19', '20', '21', '99', '22'] }, 3, true),
+        /Invalid persisted Minor Faction slice data/,
+    );
 });
 
-test('malformed resolved assignments fail closed at the reserved coordinate', () => {
+test('malformed persisted assignments fail closed at the reserved coordinate', () => {
     for (const assignment of [
-        { position: 0, faction: 'The Arborec' },
-        { position: 0, faction: '', home_system: '5' },
-        { position: 0, faction: 'The Arborec', home_system: '' },
-        { position: 0, faction: 'The Arborec', home_system: null },
+        { name: 'The Arborec', tile_id: '5' },
+        { name: '', tile_id: '5', render_token: '5' },
+        { name: 'The Arborec', tile_id: '', render_token: '5' },
+        { name: 'The Arborec', tile_id: '5', render_token: '' },
+        { name: 'The Arborec', tile_id: '6', render_token: '5' },
     ]) {
-        const result = MinorFactions.resolveSliceTile({
-            enabled: true,
-            equidistant_index: 3,
-            status: 'resolved',
-            assignments: [assignment],
-        }, 0, 3, '905');
-
-        assert.deepEqual(result, { tile: 0, label: 'Minor Faction', minor: true });
+        assert.throws(() => MinorFactions.resolveSliceTile({
+                tiles: ['19', '20', '21', '5', '22'],
+                minor_faction: assignment,
+                equidistant: { index: 3, q: -1, r: 0 },
+            }, 3),
+            /Invalid persisted Minor Faction slice data/,
+        );
     }
 });
 
-test('resolved payload without an assignment for the requested position does not leak the reserved tile', () => {
+test('Discordant Stars slices use the render token while retaining the canonical tile ID', () => {
     const result = MinorFactions.resolveSliceTile({
-        enabled: true,
-        equidistant_index: 3,
-        status: 'resolved',
-        assignments: [{ position: 1, faction: 'The Arborec', home_system: '5' }],
-    }, 0, 3, '905');
+        tiles: ['19', '20', '21', '4215', '22'],
+        minor_faction: { name: 'The Ilyxum', tile_id: '4215', render_token: 'DS_ilyxum' },
+        equidistant: { index: 3, q: -1, r: 0 },
+    }, 3);
 
-    assert.deepEqual(result, { tile: 0, label: 'Minor Faction', minor: true });
+    assert.deepEqual(result, { tile: 'DS_ilyxum', label: 'The Ilyxum', minor: true });
 });
 
 function browserHarness() {

@@ -10,6 +10,7 @@ function browserHarness() {
         enabled: true,
         playerCount: '3',
         factionCount: '3',
+        sliceCount: '7',
         factionMinimum: undefined,
         constraints: {
             '#min_inf': '4',
@@ -31,9 +32,11 @@ function browserHarness() {
                 if (value === undefined) {
                     if (selector === '#num_players') return state.playerCount;
                     if (selector === '#num_factions') return state.factionCount;
+                    if (selector === '#num_slices') return state.sliceCount;
                     return state.constraints[selector];
                 }
                 if (selector === '#num_factions') state.factionCount = String(value);
+                if (selector === '#num_slices') state.sliceCount = String(value);
                 if (Object.hasOwn(state.constraints, selector)) state.constraints[selector] = String(value);
                 return this;
             },
@@ -42,6 +45,9 @@ function browserHarness() {
                 return this;
             },
             toggle() { return this; },
+            show() { return this; },
+            hide() { return this; },
+            find() { return this; },
         };
     }
 
@@ -58,6 +64,7 @@ function browserHarness() {
     );
 
     return {
+        context,
         state,
         update() { vm.runInContext('update_minor_factions_mode()', context); },
     };
@@ -93,4 +100,13 @@ test('repeated mode toggles do not drift fractional or customized constraints', 
         '#min_total': '10.5',
         '#max_total': '12.5',
     });
+});
+
+test('raising player count cannot leave the default slice count below players', () => {
+    const harness = browserHarness();
+    harness.state.playerCount = '8';
+
+    vm.runInContext('alliance_mode = false; update_player_count()', harness.context);
+
+    assert.equal(harness.state.sliceCount, '8');
 });

@@ -382,21 +382,17 @@ function generate_map() {
         }
     }
 
-    let speaker_order = [];
+    let slice_owners = [];
     for(let pid in draft.draft.players) {
         let p = draft.draft.players[pid];
-        if(p.position != null) {
-            speaker_order[p.position] = p.name;
+        if(p.slice != null) {
+            slice_owners[p.slice] = p.name;
         }
     }
 
     let slices_html = '';
-    for(let i = 0; i < draft.config.players.length; i++) {
-        let s = speaker_order[i];
-
-        if(typeof(s) == 'undefined') {
-            s = 'Unknown';
-        }
+    for(let i = 0; i < draft.slices.length; i++) {
+        let s = typeof(slice_owners[i]) == 'undefined' ? 'Available' : slice_owners[i];
 
         let tpl = [
             [-1, 0, i + '-3'],
@@ -409,10 +405,10 @@ function generate_map() {
 
         let result = '';
         for(let u = 0; u < tpl.length; u++) {
-            result += draw_tile(tpl[u]).html;
+            result += draw_tile(tpl[u], lookup_slice, false).html;
         }
 
-        slices_html += '<div class="slice"><h3>' + (i + 1) + ': ' + s + '</h3><div class="map-offset"><div class="map">' + result + '</div></div></div>';
+        slices_html += '<div class="slice"><h3>Slice ' + (i + 1) + ': ' + s + '</h3><div class="map-offset"><div class="map">' + result + '</div></div></div>';
     }
 
 
@@ -457,12 +453,10 @@ function lookup(player_index, tile_index) {
                 return [tile, p.name];
             }
             else if(p.slice != null) {
-                const originalTile = draft.slices[p.slice].tiles[tile_index];
                 const resolvedTile = MinorFactions.resolveSliceTile(
-                    draft.minor_factions,
-                    player_index,
+                    draft.slices[p.slice],
                     tile_index,
-                    originalTile,
+                    Boolean(draft.config.minor_factions),
                 );
 
                 return [resolvedTile.tile, p.name, resolvedTile.label];
@@ -473,7 +467,21 @@ function lookup(player_index, tile_index) {
     return ["EMPTY", ordinal(parseInt(player_index) + 1)];
 }
 
-function draw_tile(tile) {
+function lookup_slice(slice_index, tile_index) {
+    const slice = draft.slices[slice_index];
+    const sliceName = 'Slice ' + (Number(slice_index) + 1);
+    if (!slice) return ['EMPTY', sliceName];
+    if (tile_index == 'H') return [0, sliceName];
+
+    const resolvedTile = MinorFactions.resolveSliceTile(
+        slice,
+        tile_index,
+        Boolean(draft.config.minor_factions),
+    );
+    return [resolvedTile.tile, sliceName, resolvedTile.label];
+}
+
+function draw_tile(tile, tileLookup = lookup, includeInGather = true) {
     // let coords = hex_to_pixel(tile[0], tile[1]);
     let tilename = "EMPTY";
     let rotation = 0;
@@ -493,7 +501,7 @@ function draw_tile(tile) {
             tilename = $('#include-te').data('te') ? 112 : 18;
             label = tilename;
         } else {
-            let result = lookup(chunks[0], chunks[1]);
+            let result = tileLookup(chunks[0], chunks[1]);
             tilename = result[0];
             rotation = 0;
             label = result[0];
@@ -509,7 +517,7 @@ function draw_tile(tile) {
         }
     }
 
-    if(tilename != 'EMPTY' && tilename != 0 && !all_tiles.includes(tilename)) all_tiles.push(tilename);
+    if(includeInGather && tilename != 'EMPTY' && tilename != 0 && !all_tiles.includes(tilename)) all_tiles.push(tilename);
 
     let tile_image =  tilename + '.png';
     if(tile_image.substring(0, 2) != 'DS') tile_image = 'ST_' + tile_image;

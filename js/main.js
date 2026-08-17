@@ -276,6 +276,9 @@ function update_player_count() {
     $('#num_players').val(numPlayers);
     $('#add-player').toggle(numPlayers < 8);
     $('.player:gt(' + (numPlayers - 1) + ')').hide().find('input').val('');
+    if (parseInt($('#num_slices').val()) < numPlayers) {
+        $('#num_slices').val(numPlayers);
+    }
     update_minor_factions_mode();
 }
 

@@ -85,6 +85,19 @@ test('face-up Minor Factions remain attached to slices through picks, maps, relo
     }
 
     expect(await publicSlices(page)).toEqual(initialSlices);
+    const selectedByPosition = await page.evaluate(() => Object.values(window.draft.draft.players)
+        .sort((left, right) => Number(left.position) - Number(right.position))
+        .map((player) => window.draft.slices[Number(player.slice)].minor_faction));
+
+    await page.getByRole('link', {name: 'Map', exact: true}).click();
+    const gathered = (await page.locator('#tile-gather').innerText()).split(/,\s*/);
+    const tts = (await page.locator('#tts-string').innerText()).trim().split(/\s+/);
+    for (const minor of selectedByPosition) {
+        expect(gathered).toContain(minor.render_token);
+        expect(tts).toContain(minor.render_token);
+        await expect(page.locator('#mapslices-wrap')).toContainText(minor.name);
+    }
+
     await page.reload();
     expect(await publicSlices(page)).toEqual(initialSlices);
     await expect(page.locator('.slice.option .minor-faction-name')).toHaveCount(4);

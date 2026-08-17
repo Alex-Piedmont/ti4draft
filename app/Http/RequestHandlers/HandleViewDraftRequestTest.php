@@ -132,13 +132,17 @@ class HandleViewDraftRequestTest extends RequestHandlerTestCase
     {
         app()->repository->delete($this->testDraft->id);
         $this->testDraft = (new GenerateDraft(DraftSettingsFactory::make([
-            'num_players' => 6,
+            'numberOfPlayers' => 6,
             'minorFactionsMode' => true,
             'tileSets' => [Edition::BASE_GAME, Edition::PROPHECY_OF_KINGS, Edition::THUNDERS_EDGE],
             'factionSets' => $factionSets ?? [Edition::BASE_GAME, Edition::PROPHECY_OF_KINGS, Edition::THUNDERS_EDGE],
             'minimumTwoAlphaBetaWormholes' => false,
             'minimumLegendaryPlanets' => 0,
-            'maxOneWormholePerSlice' => true,
+            'maxOneWormholePerSlice' => false,
+            'minimumOptimalInfluence' => 0,
+            'minimumOptimalResources' => 0,
+            'minimumOptimalTotal' => 0,
+            'maximumOptimalTotal' => 100,
         ])))->handle();
         app()->repository->save($this->testDraft);
     }

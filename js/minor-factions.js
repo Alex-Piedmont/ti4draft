@@ -23,30 +23,39 @@
         };
     }
 
-    function resolveSliceTile(mode, position, tileIndex, originalTile) {
-        if (!mode || !mode.enabled || Number(tileIndex) !== Number(mode.equidistant_index)) {
+    function resolveSliceTile(slice, tileIndex, minorFactionsEnabled = false) {
+        const originalTile = slice && Array.isArray(slice.tiles) ? slice.tiles[tileIndex] : undefined;
+        const assignment = slice && slice.minor_faction;
+        const equidistant = slice && slice.equidistant;
+
+        if (!assignment && !equidistant) {
+            if (minorFactionsEnabled && Number(tileIndex) === 3) {
+                throw new Error('Invalid persisted Minor Faction slice data');
+            }
             return { tile: originalTile, label: null, minor: false };
         }
 
-        if (mode.status === 'resolved') {
-            const assignment = (mode.assignments || []).find(
-                (candidate) => Number(candidate.position) === Number(position),
-            );
-
-            if (
-                assignment &&
-                typeof assignment.faction === 'string' && assignment.faction.length > 0 &&
-                typeof assignment.home_system === 'string' && assignment.home_system.length > 0
-            ) {
-                return {
-                    tile: assignment.home_system,
-                    label: assignment.faction,
-                    minor: true,
-                };
-            }
+        if (Number(tileIndex) !== 3) {
+            return { tile: originalTile, label: null, minor: false };
         }
 
-        return { tile: 0, label: 'Minor Faction', minor: true };
+        if (
+            assignment &&
+            typeof assignment.name === 'string' && assignment.name.trim().length > 0 &&
+            typeof assignment.tile_id === 'string' && assignment.tile_id.trim().length > 0 &&
+            typeof assignment.render_token === 'string' && assignment.render_token.trim().length > 0 &&
+            assignment.tile_id === originalTile &&
+            equidistant && Number(equidistant.index) === 3 &&
+            Number(equidistant.q) === -1 && Number(equidistant.r) === 0
+        ) {
+            return {
+                tile: assignment.render_token,
+                label: assignment.name,
+                minor: true,
+            };
+        }
+
+        throw new Error('Invalid persisted Minor Faction slice data');
     }
 
     return {
