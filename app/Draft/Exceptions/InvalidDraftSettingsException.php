@@ -36,7 +36,21 @@ class InvalidDraftSettingsException extends \Exception
 
     public static function notEnoughFactionsForMinorFactions(int $minimum): self
     {
-        return new self(sprintf('Minor Factions requires at least %d eligible factions in the draft pool', $minimum));
+        return new self(sprintf('Enabled faction sets must provide %d additional eligible factions for the generated slices', $minimum));
+    }
+
+    public static function notEnoughEnabledFactionsForMinorFactions(int $required, int $available): self
+    {
+        return new self(sprintf(
+            'Minor Factions catalog shortage: %d enabled factions are required but only %d are available',
+            $required,
+            $available,
+        ));
+    }
+
+    public static function invalidCustomFaction(string $reason): self
+    {
+        return new self('Invalid custom faction selection: ' . $reason);
     }
 
     public static function unknownTileInCustomSlice($id): self

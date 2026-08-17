@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Draft\Commands;
 
 use App\Draft\Exceptions\InvalidDraftSettingsException;
+use App\Draft\FactionPartition;
 use App\Draft\Settings;
 use App\Shared\Command;
 use App\TwilightImperium\Faction;
@@ -23,15 +24,16 @@ class GenerateFactionPool implements Command
     }
 
     /**
-     * @return array<Faction>
+     * @return FactionPartition
      */
-    public function handle(): array
+    public function handle(): FactionPartition
     {
         $this->settings->seed->setForFactions();
         $factionsFromSets = $this->gatherFactionsFromSelectedSets();
+        $this->validatePinnedFactions($factionsFromSets);
 
         if ($this->settings->minorFactionsMode) {
-            return $this->generateMinorFactionsPool($factionsFromSets);
+            return $this->generateMinorFactionsPartition($factionsFromSets);
         }
 
         $gatheredFactions = [];
@@ -54,75 +56,83 @@ class GenerateFactionPool implements Command
 
         shuffle($gatheredFactions);
 
-        return array_slice($gatheredFactions, 0, $this->settings->numberOfFactions);
+        return new FactionPartition(array_slice($gatheredFactions, 0, $this->settings->numberOfFactions));
     }
 
     /**
      * @param array<string, Faction> $factionsFromSets
      * @return array<Faction>
      */
-    private function generateMinorFactionsPool(array $factionsFromSets): array
+    private function generateMinorFactionsPartition(array $factionsFromSets): FactionPartition
     {
-        $requiredEligibleFactions = count($this->settings->playerNames) * 2;
-        $gatheredFactions = [];
+        $requiredMinors = $this->settings->numberOfSlices;
+        $requiredTotal = $this->settings->numberOfFactions + $requiredMinors;
+        if (count($factionsFromSets) < $requiredTotal) {
+            throw InvalidDraftSettingsException::notEnoughEnabledFactionsForMinorFactions(
+                $requiredTotal,
+                count($factionsFromSets),
+            );
+        }
 
+        $draftable = [];
         foreach ($this->settings->customFactions as $name) {
-            if (! isset($factionsFromSets[$name])) {
-                throw InvalidDraftSettingsException::notEnoughFactionsForMinorFactions($requiredEligibleFactions);
-            }
-
-            $gatheredFactions[] = $factionsFromSets[$name];
+            $draftable[] = $factionsFromSets[$name];
             unset($factionsFromSets[$name]);
         }
 
-        if (count($gatheredFactions) > $this->settings->numberOfFactions) {
-            throw InvalidDraftSettingsException::notEnoughFactionsForMinorFactions($requiredEligibleFactions);
-        }
-
-        $eligibleCount = count(array_filter(
-            $gatheredFactions,
+        $eligible = array_values(array_filter(
+            $factionsFromSets,
             static fn (Faction $faction): bool => $faction->minorFactionEligible,
         ));
-        $eligibleStillRequired = $requiredEligibleFactions - $eligibleCount;
-
-        shuffle($factionsFromSets);
-        foreach ($factionsFromSets as $key => $faction) {
-            if ($eligibleStillRequired <= 0) {
-                break;
-            }
-
-            if ($faction->minorFactionEligible) {
-                $gatheredFactions[] = $faction;
-                unset($factionsFromSets[$key]);
-                $eligibleStillRequired--;
-            }
+        if (count($eligible) < $requiredMinors) {
+            throw InvalidDraftSettingsException::notEnoughFactionsForMinorFactions($requiredMinors);
         }
 
-        if ($eligibleStillRequired > 0 || count($gatheredFactions) > $this->settings->numberOfFactions) {
-            throw InvalidDraftSettingsException::notEnoughFactionsForMinorFactions($requiredEligibleFactions);
+        shuffle($eligible);
+        $minors = array_slice($eligible, 0, $requiredMinors);
+        foreach ($minors as $minor) {
+            unset($factionsFromSets[$minor->name]);
         }
 
-        $remainingSlots = $this->settings->numberOfFactions - count($gatheredFactions);
-        if ($remainingSlots > count($factionsFromSets)) {
-            throw InvalidDraftSettingsException::notEnoughFactionsForMinorFactions($requiredEligibleFactions);
-        }
-
-        $gatheredFactions = array_merge(
-            $gatheredFactions,
-            array_slice($factionsFromSets, 0, $remainingSlots),
+        $remaining = array_values($factionsFromSets);
+        shuffle($remaining);
+        $draftable = array_merge(
+            $draftable,
+            array_slice($remaining, 0, $this->settings->numberOfFactions - count($draftable)),
         );
-        shuffle($gatheredFactions);
+        shuffle($draftable);
+        shuffle($minors);
 
-        return $gatheredFactions;
+        return new FactionPartition($draftable, $minors);
+    }
+
+    /** @param array<string, Faction> $enabledFactions */
+    private function validatePinnedFactions(array $enabledFactions): void
+    {
+        if (count($this->settings->customFactions) !== count(array_unique($this->settings->customFactions))) {
+            throw InvalidDraftSettingsException::invalidCustomFaction('duplicates are not allowed');
+        }
+        if (count($this->settings->customFactions) > $this->settings->numberOfFactions) {
+            throw InvalidDraftSettingsException::invalidCustomFaction('more factions were pinned than requested');
+        }
+        foreach ($this->settings->customFactions as $name) {
+            if (! isset($enabledFactions[$name])) {
+                throw InvalidDraftSettingsException::invalidCustomFaction("{$name} is unknown or disabled");
+            }
+        }
     }
 
     private function gatherFactionsFromSelectedSets(): array
     {
-        return array_filter(
-            $this->factionData,
-            fn (Faction $faction) =>
-                in_array($faction->edition, $this->settings->factionSets) ||
-                $faction->name == 'The Council Keleres' && $this->settings->includeCouncilKeleresFaction,
-        );
+        return array_filter($this->factionData, function (Faction $faction): bool {
+            if ($faction->name === 'The Council Keleres') {
+                return $this->settings->includeCouncilKeleresFaction && (
+                    in_array(\App\TwilightImperium\Edition::PROPHECY_OF_KINGS, $this->settings->factionSets, true) ||
+                    in_array(\App\TwilightImperium\Edition::THUNDERS_EDGE, $this->settings->factionSets, true)
+                );
+            }
+
+            return in_array($faction->edition, $this->settings->factionSets, true);
+        });
     }
 }

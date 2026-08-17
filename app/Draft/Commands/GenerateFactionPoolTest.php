@@ -5,278 +5,134 @@ declare(strict_types=1);
 namespace App\Draft\Commands;
 
 use App\Draft\Exceptions\InvalidDraftSettingsException;
+use App\Draft\FactionPartition;
 use App\Shared\Command;
 use App\Testing\Factories\DraftSettingsFactory;
 use App\Testing\TestCase;
-use App\Testing\TestSets;
 use App\TwilightImperium\Edition;
 use App\TwilightImperium\Faction;
-use PHPUnit\Framework\Attributes\DataProviderExternal;
 use PHPUnit\Framework\Attributes\Test;
 
-class GenerateFactionPoolTest extends TestCase
+final class GenerateFactionPoolTest extends TestCase
 {
     #[Test]
-    public function itImplementsCommand(): void
+    public function itAlwaysReturnsAPartition(): void
     {
-        $cmd = new GenerateFactionPool(DraftSettingsFactory::make());
-        $this->assertInstanceOf(Command::class, $cmd);
-    }
-    
-    #[Test]
-    #[DataProviderExternal(TestSets::class, 'setCombinations')]
-    public function itCanGenerateChoicesFromFactionSets($sets): void
-    {
-        $generator = new GenerateFactionPool(DraftSettingsFactory::make([
-            'factionSets' => $sets,
-            'numberOfFactions' => 10,
-        ]));
-
-        $choices = $generator->handle();
-        $choicesNames = array_map(fn (Faction $faction) => $faction->name, $choices);
-
-        $this->assertCount(10, $choices);
-        $this->assertCount(10, array_unique($choicesNames));
-        foreach($choices as $choice) {
-            $this->assertContains($choice->edition, $sets);
-        }
+        $command = new GenerateFactionPool(DraftSettingsFactory::make());
+        $this->assertInstanceOf(Command::class, $command);
+        $partition = $command->handle();
+        $this->assertInstanceOf(FactionPartition::class, $partition);
+        $this->assertCount(8, $partition->draftable);
+        $this->assertSame([], $partition->minors);
     }
 
     #[Test]
-    public function itUsesOnlyCustomFactionsWhenEnoughAreProvided(): void
+    public function ordinaryModePreservesSeededSelection(): void
     {
-        $customFactions = [
-            'The Barony of Letnev',
-            'The Clan of Saar',
-            'The Emirates of Hacan',
-            'The Ghosts of Creuss',
-        ];
-        $generator = new GenerateFactionPool(DraftSettingsFactory::make([
-            'customFactions' => $customFactions,
-            'factionSets' => [Edition::BASE_GAME],
-            'numberOfFactions' => 3,
-        ]));
-
-        $choices = $generator->handle();
-
-        $this->assertCount(3, $choices);
-        foreach($choices as $choice) {
-            $this->assertContains($choice->name, $customFactions);
-        }
-    }
-
-    #[Test]
-    public function itGeneratesTheSameFactionsFromTheSameSeed(): void
-    {
-        $generator = new GenerateFactionPool(DraftSettingsFactory::make([
+        $partition = (new GenerateFactionPool(DraftSettingsFactory::make([
             'seed' => 123,
             'factionSets' => [Edition::BASE_GAME],
             'numberOfFactions' => 3,
-        ]));
-        $previouslyGeneratedChoices = [
-            'The Ghosts of Creuss',
-            'The Emirates of Hacan',
-            'The Yssaril Tribes',
-        ];
+        ])))->handle();
+        $this->assertSame([
+            'The Ghosts of Creuss', 'The Emirates of Hacan', 'The Yssaril Tribes',
+        ], $this->names($partition->draftable));
+    }
 
-        $choices = $generator->handle();
+    #[Test]
+    public function itCreatesExactDisjointPools(): void
+    {
+        $partition = $this->minorPartition();
+        $this->assertCount(6, $partition->draftable);
+        $this->assertCount(4, $partition->minors);
+        $this->assertSame([], array_intersect($this->names($partition->draftable), $this->names($partition->minors)));
+        $this->assertCount(4, array_filter($partition->minors, fn (Faction $faction) => $faction->minorFactionEligible));
+    }
 
-        foreach($previouslyGeneratedChoices as $i => $name) {
-            $this->assertSame($name, $choices[$i]->name);
+    #[Test]
+    public function pinnedFactionsRemainExclusivelyDraftable(): void
+    {
+        $partition = $this->minorPartition(['customFactions' => ['The Ghosts of Creuss']]);
+        $this->assertContains('The Ghosts of Creuss', $this->names($partition->draftable));
+        $this->assertNotContains('The Ghosts of Creuss', $this->names($partition->minors));
+    }
+
+    #[Test]
+    public function itUsesOnlyEnabledSetsAndRequiresTheKeleresToggle(): void
+    {
+        $without = $this->minorPartition(['factionSets' => [Edition::BASE_GAME, Edition::THUNDERS_EDGE]]);
+        $with = $this->minorPartition([
+            'factionSets' => [Edition::BASE_GAME, Edition::THUNDERS_EDGE],
+            'includeCouncilKeleresFaction' => true,
+            'customFactions' => ['The Council Keleres'],
+        ]);
+        $this->assertNotContains('The Council Keleres', $this->names([...$without->draftable, ...$without->minors]));
+        $this->assertContains('The Council Keleres', $this->names([...$with->draftable, ...$with->minors]));
+        $this->assertNotContains('The Council Keleres', $this->names($with->minors));
+        foreach ([...$without->draftable, ...$without->minors] as $faction) {
+            $this->assertContains($faction->edition, [Edition::BASE_GAME, Edition::THUNDERS_EDGE]);
         }
     }
 
     #[Test]
-    public function itTakesFromSetsWhenNotEnoughCustomFactionsAreProvided(): void
+    public function identicalSeedReproducesBothOrderedPools(): void
     {
-        $customFactions = [
-            'The Ghosts of Creuss',
-            'The Emirates of Hacan',
-            'The Yssaril Tribes',
-        ];
-        $generator = new GenerateFactionPool(DraftSettingsFactory::make([
-            'factionSets' => [Edition::BASE_GAME],
-            'customFactions' => $customFactions,
-            'numberOfFactions' => 10,
-        ]));
-
-        $choices = $generator->handle();
-        $choicesNames = array_map(fn (Faction $faction) => $faction->name, $choices);
-
-        foreach($customFactions as $f) {
-            $this->assertContains($f, $choicesNames);
-        }
-
-        foreach($choices as $c) {
-            $this->assertEquals($c->edition, Edition::BASE_GAME);
-        }
+        $first = $this->minorPartition();
+        $second = $this->minorPartition();
+        $this->assertSame($this->names($first->draftable), $this->names($second->draftable));
+        $this->assertSame($this->names($first->minors), $this->names($second->minors));
     }
 
     #[Test]
-    public function minorFactionsPoolContainsTwoEligibleFactionsPerPlayer(): void
+    public function itRejectsInsufficientCatalogOrEligibleCapacity(): void
     {
-        $choices = (new GenerateFactionPool(DraftSettingsFactory::make([
-            'numberOfPlayers' => 6,
-            'numberOfFactions' => 12,
-            'factionSets' => [Edition::BASE_GAME],
-            'minorFactionsMode' => true,
-            'seed' => 123,
-        ])))->handle();
-
-        $eligible = array_filter($choices, fn (Faction $faction) => $faction->minorFactionEligible);
-
-        $this->assertCount(12, $choices);
-        $this->assertCount(12, $eligible);
-    }
-
-    #[Test]
-    public function minorFactionsPoolPreservesPinnedIneligibleFactionsWhenThereIsRoom(): void
-    {
-        $choices = (new GenerateFactionPool(DraftSettingsFactory::make([
-            'numberOfPlayers' => 6,
-            'numberOfFactions' => 13,
-            'factionSets' => [Edition::BASE_GAME],
-            'customFactions' => ['The Ghosts of Creuss'],
-            'minorFactionsMode' => true,
-            'seed' => 456,
-        ])))->handle();
-
-        $names = array_map(fn (Faction $faction) => $faction->name, $choices);
-        $eligible = array_filter($choices, fn (Faction $faction) => $faction->minorFactionEligible);
-
-        $this->assertContains('The Ghosts of Creuss', $names);
-        $this->assertCount(12, $eligible);
-    }
-
-    #[Test]
-    public function minorFactionsPoolRejectsPinnedChoicesThatCrowdOutTheReserve(): void
-    {
-        $generator = new GenerateFactionPool(DraftSettingsFactory::make([
-            'numberOfPlayers' => 6,
-            'numberOfFactions' => 12,
-            'factionSets' => [Edition::BASE_GAME],
-            'customFactions' => ['The Ghosts of Creuss'],
-            'minorFactionsMode' => true,
-        ]));
-
-        $this->expectException(InvalidDraftSettingsException::class);
-        $this->expectExceptionMessage(
-            InvalidDraftSettingsException::notEnoughFactionsForMinorFactions(12)->getMessage(),
-        );
-
-        $generator->handle();
-    }
-
-    #[Test]
-    public function minorFactionsPoolRejectsEnabledSourcesWithTooFewEligibleFactions(): void
-    {
-        $generator = new GenerateFactionPool(DraftSettingsFactory::make([
-            'numberOfPlayers' => 6,
-            'numberOfFactions' => 12,
-            'factionSets' => [Edition::THUNDERS_EDGE],
-            'minorFactionsMode' => true,
-        ]));
-
-        $this->expectException(InvalidDraftSettingsException::class);
-        $this->expectExceptionMessage(
-            InvalidDraftSettingsException::notEnoughFactionsForMinorFactions(12)->getMessage(),
-        );
-
-        $generator->handle();
-    }
-
-    #[Test]
-    public function minorFactionsPoolIsStableForTheSameSeed(): void
-    {
-        $settings = [
-            'numberOfPlayers' => 6,
-            'numberOfFactions' => 13,
-            'factionSets' => [Edition::BASE_GAME],
-            'customFactions' => ['The Ghosts of Creuss'],
-            'minorFactionsMode' => true,
-            'seed' => 789,
-        ];
-
-        $first = (new GenerateFactionPool(DraftSettingsFactory::make($settings)))->handle();
-        $second = (new GenerateFactionPool(DraftSettingsFactory::make($settings)))->handle();
-
-        $this->assertSame(
-            array_map(fn (Faction $faction) => $faction->name, $first),
-            array_map(fn (Faction $faction) => $faction->name, $second),
-        );
-    }
-
-    #[Test]
-    public function minorFactionsPoolAtTheExactMinimumRetainsEligiblePinnedChoicesWithoutDuplicates(): void
-    {
-        $pinned = [
-            'The Barony of Letnev',
-            'The Emirates of Hacan',
-        ];
-        $choices = (new GenerateFactionPool(DraftSettingsFactory::make([
-            'numberOfPlayers' => 6,
-            'numberOfFactions' => 12,
-            'factionSets' => [Edition::BASE_GAME],
-            'customFactions' => $pinned,
-            'minorFactionsMode' => true,
-            'seed' => 2468,
-        ])))->handle();
-
-        $names = array_map(fn (Faction $faction) => $faction->name, $choices);
-
-        $this->assertCount(12, $choices);
-        $this->assertCount(12, array_unique($names));
-        $this->assertEmpty(array_diff($pinned, $names));
-        $this->assertCount(
-            12,
-            array_filter($choices, fn (Faction $faction) => $faction->minorFactionEligible),
-        );
-        foreach ($choices as $choice) {
-            $this->assertSame(Edition::BASE_GAME, $choice->edition);
+        foreach ([
+            ['numberOfFactions' => 7, 'numberOfSlices' => 6, 'factionSets' => [Edition::PROPHECY_OF_KINGS]],
+            ['numberOfFactions' => 3, 'numberOfSlices' => 6, 'factionSets' => [Edition::THUNDERS_EDGE], 'includeCouncilKeleresFaction' => true],
+        ] as $overrides) {
+            try {
+                $this->minorPartition($overrides);
+                $this->fail('Insufficient faction capacity was accepted');
+            } catch (InvalidDraftSettingsException $exception) {
+                $this->assertMatchesRegularExpression('/catalog shortage|additional eligible factions/', $exception->getMessage());
+            }
         }
     }
 
     #[Test]
-    public function minorFactionsPoolContainsExactlyTheEnabledSourceWhenEveryFactionFits(): void
+    public function itRejectsInvalidPins(): void
     {
-        $choices = (new GenerateFactionPool(DraftSettingsFactory::make([
-            'numberOfPlayers' => 3,
-            'numberOfFactions' => 7,
-            'factionSets' => [Edition::PROPHECY_OF_KINGS],
-            'minorFactionsMode' => true,
-            'seed' => 1357,
-        ])))->handle();
-
-        $expectedNames = array_map(
-            fn (Faction $faction) => $faction->name,
-            array_filter(
-                Faction::all(),
-                fn (Faction $faction) => $faction->edition === Edition::PROPHECY_OF_KINGS,
-            ),
-        );
-        $actualNames = array_map(fn (Faction $faction) => $faction->name, $choices);
-
-        sort($expectedNames);
-        sort($actualNames);
-
-        $this->assertSame($expectedNames, $actualNames);
+        foreach ([
+            [['The Arborec', 'The Arborec'], 'duplicates are not allowed'],
+            [['Unknown Faction'], 'Unknown Faction is unknown or disabled'],
+            [['The Naaz-Rokha Alliance'], 'The Naaz-Rokha Alliance is unknown or disabled'],
+            [['The Arborec', 'The Barony of Letnev', 'The Clan of Saar', 'The Emirates of Hacan'], 'more factions were pinned than requested'],
+        ] as [$pins, $expectedCondition]) {
+            try {
+                $this->minorPartition(['numberOfFactions' => 3, 'customFactions' => $pins, 'factionSets' => [Edition::BASE_GAME, Edition::THUNDERS_EDGE]]);
+                $this->fail('Invalid pins were accepted');
+            } catch (InvalidDraftSettingsException $exception) {
+                $this->assertStringContainsString('Invalid custom faction selection', $exception->getMessage());
+                $this->assertStringContainsString($expectedCondition, $exception->getMessage());
+            }
+        }
     }
 
-    #[Test]
-    public function minorFactionsPoolDoesNotSupplementAnInsufficientEnabledSetFromDisabledSources(): void
+    private function minorPartition(array $overrides = []): FactionPartition
     {
-        $generator = new GenerateFactionPool(DraftSettingsFactory::make([
+        return (new GenerateFactionPool(DraftSettingsFactory::make(array_merge([
             'numberOfPlayers' => 3,
             'numberOfFactions' => 6,
-            'factionSets' => [Edition::THUNDERS_EDGE],
+            'numberOfSlices' => 4,
+            'factionSets' => [Edition::BASE_GAME, Edition::PROPHECY_OF_KINGS, Edition::THUNDERS_EDGE],
             'minorFactionsMode' => true,
-        ]));
+            'seed' => 789,
+        ], $overrides))))->handle();
+    }
 
-        $this->expectException(InvalidDraftSettingsException::class);
-        $this->expectExceptionMessage(
-            InvalidDraftSettingsException::notEnoughFactionsForMinorFactions(6)->getMessage(),
-        );
-
-        $generator->handle();
+    /** @param Faction[] $factions */
+    private function names(array $factions): array
+    {
+        return array_map(fn (Faction $faction): string => $faction->name, $factions);
     }
 }
