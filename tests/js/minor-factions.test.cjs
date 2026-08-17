@@ -18,6 +18,24 @@ test('invalid player counts do not produce a negative minimum', () => {
     assert.equal(MinorFactions.minimumFactionCount('invalid', true), 0);
 });
 
+test('minor factions uses balanced defaults for four retained systems', () => {
+    assert.deepEqual(MinorFactions.sliceConstraintDefaults(true), {
+        minimumInfluence: 2,
+        minimumResources: 1,
+        minimumTotal: 5,
+        maximumTotal: 10,
+    });
+});
+
+test('ordinary drafts retain the five-system slice defaults', () => {
+    assert.deepEqual(MinorFactions.sliceConstraintDefaults(false), {
+        minimumInfluence: 4,
+        minimumResources: 2.5,
+        minimumTotal: 9,
+        maximumTotal: 13,
+    });
+});
+
 test('resolved assignments replace only the server-described equidistant index', () => {
     const mode = {
         enabled: true,
@@ -96,6 +114,12 @@ function browserHarness() {
         factionCount: '9',
         factionMinimum: undefined,
         guidanceVisible: undefined,
+        constraints: {
+            '#min_inf': '4',
+            '#min_res': '2.5',
+            '#min_total': '9',
+            '#max_total': '13',
+        },
     };
 
     function element(selector) {
@@ -110,11 +134,14 @@ function browserHarness() {
             },
             val(value) {
                 if (value === undefined) {
-                    return selector === '#num_players' ? state.playerCount : state.factionCount;
+                    if (selector === '#num_players') return state.playerCount;
+                    if (selector === '#num_factions') return state.factionCount;
+                    return state.constraints[selector];
                 }
 
                 if (selector === '#num_players') state.playerCount = String(value);
                 if (selector === '#num_factions') state.factionCount = String(value);
+                if (Object.hasOwn(state.constraints, selector)) state.constraints[selector] = String(value);
                 return this;
             },
             attr(name, value) {
@@ -142,8 +169,8 @@ function browserHarness() {
 
     return {
         state,
-        update() {
-            vm.runInContext('update_minor_factions_mode()', context);
+        update(applySliceDefaults = false) {
+            vm.runInContext(`update_minor_factions_mode(${applySliceDefaults})`, context);
         },
     };
 }
@@ -160,6 +187,36 @@ test('browser control updates the minimum and current value when player count ch
     harness.update();
     assert.equal(harness.state.factionMinimum, 16);
     assert.equal(harness.state.factionCount, '16');
+});
+
+test('browser control applies and restores mode-specific slice defaults', () => {
+    const harness = browserHarness();
+
+    harness.update(true);
+    assert.deepEqual(harness.state.constraints, {
+        '#min_inf': '2',
+        '#min_res': '1',
+        '#min_total': '5',
+        '#max_total': '10',
+    });
+
+    harness.state.enabled = false;
+    harness.update(true);
+    assert.deepEqual(harness.state.constraints, {
+        '#min_inf': '4',
+        '#min_res': '2.5',
+        '#min_total': '9',
+        '#max_total': '13',
+    });
+});
+
+test('player-count updates preserve custom slice constraints', () => {
+    const harness = browserHarness();
+    harness.state.constraints['#min_total'] = '7.5';
+
+    harness.update();
+
+    assert.equal(harness.state.constraints['#min_total'], '7.5');
 });
 
 test('browser control restores the ordinary minimum when minor factions is disabled', () => {

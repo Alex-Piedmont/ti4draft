@@ -110,7 +110,9 @@ $(document).ready(function () {
     $("#alliance_toggle").on('change', update_alliance_mode);
 
     $("input[name='alliance_teams']").on('change', update_alliance_teams);
-    $('#minor_factions_toggle').on('change', update_minor_factions_mode);
+    $('#minor_factions_toggle').on('change', function () {
+        update_minor_factions_mode(true);
+    });
 
     update_alliance_mode();
     update_minor_factions_mode();
@@ -277,7 +279,7 @@ function update_player_count() {
     update_minor_factions_mode();
 }
 
-function update_minor_factions_mode() {
+function update_minor_factions_mode(applySliceDefaults = false) {
     const enabled = $('#minor_factions_toggle').is(':checked');
     const playerCount = parseInt($('#num_players').val()) || 0;
     const minimum = MinorFactions.minimumFactionCount(playerCount, enabled);
@@ -287,5 +289,13 @@ function update_minor_factions_mode() {
     $factionCount.attr('min', minimum);
     if (enabled && parseInt($factionCount.val()) < minimum) {
         $factionCount.val(minimum);
+    }
+
+    if (applySliceDefaults) {
+        const defaults = MinorFactions.sliceConstraintDefaults(enabled);
+        $('#min_inf').val(defaults.minimumInfluence);
+        $('#min_res').val(defaults.minimumResources);
+        $('#min_total').val(defaults.minimumTotal);
+        $('#max_total').val(defaults.maximumTotal);
     }
 }

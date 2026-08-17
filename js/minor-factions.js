@@ -14,6 +14,24 @@
         return enabled ? players * 2 : players;
     }
 
+    function sliceConstraintDefaults(enabled) {
+        if (enabled) {
+            return {
+                minimumInfluence: 2,
+                minimumResources: 1,
+                minimumTotal: 5,
+                maximumTotal: 10,
+            };
+        }
+
+        return {
+            minimumInfluence: 4,
+            minimumResources: 2.5,
+            minimumTotal: 9,
+            maximumTotal: 13,
+        };
+    }
+
     function resolveSliceTile(mode, position, tileIndex, originalTile) {
         if (!mode || !mode.enabled || Number(tileIndex) !== Number(mode.equidistant_index)) {
             return { tile: originalTile, label: null, minor: false };
@@ -42,6 +60,7 @@
 
     return {
         minimumFactionCount,
+        sliceConstraintDefaults,
         resolveSliceTile,
     };
 }));

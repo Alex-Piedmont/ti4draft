@@ -26,10 +26,10 @@ test('minor factions resolve across maps and return to placeholders after undo',
     await page.locator('#num_factions').fill('12');
     await page.getByRole('textbox', {name: 'Game Name'}).fill(`Minor Factions E2E ${Date.now()}`);
     await page.getByRole('link', {name: 'Show', exact: true}).click();
-    await page.getByRole('spinbutton', {name: 'Minimum Optimal Influence'}).fill('0');
-    await page.getByRole('spinbutton', {name: 'Minimum Optimal Resources'}).fill('0');
-    await page.getByRole('spinbutton', {name: 'Minimum Optimal Total'}).fill('0');
-    await page.getByRole('spinbutton', {name: 'Maximum Optimal Total'}).fill('20');
+    await expect(page.getByRole('spinbutton', {name: 'Minimum Optimal Influence'})).toHaveValue('2');
+    await expect(page.getByRole('spinbutton', {name: 'Minimum Optimal Resources'})).toHaveValue('1');
+    await expect(page.getByRole('spinbutton', {name: 'Minimum Optimal Total'})).toHaveValue('5');
+    await expect(page.getByRole('spinbutton', {name: 'Maximum Optimal Total'})).toHaveValue('10');
 
     await page.getByRole('button', {name: 'Generate'}).click();
     await expect(page).toHaveURL(/\/d\/[^?]+\?fresh=1$/);
