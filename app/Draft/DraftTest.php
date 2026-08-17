@@ -10,6 +10,7 @@ use App\Testing\TestCase;
 use App\Testing\TestDrafts;
 use App\TwilightImperium\Faction;
 use App\TwilightImperium\Tile;
+use App\TwilightImperium\TileType;
 use PHPUnit\Framework\Attributes\DataProviderExternal;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -152,6 +153,18 @@ class DraftTest extends TestCase
     }
 
     #[Test]
+    public function oldMinorFactionDraftsMoveTheReservedBlueTileToTheLeftSecondRingSlot(): void
+    {
+        $saved = json_decode($this->completedMinorFactionDraft()->toFileContent(), true);
+        $saved['slices'][0]['tiles'] = ['64', '33', '42', '67', '59'];
+
+        $reloaded = Draft::fromJson($saved);
+
+        $this->assertSame(['64', '33', '42', '59', '67'], $reloaded->slicePool[0]->tileIds());
+        $this->assertSame(TileType::BLUE, $reloaded->slicePool[0]->tiles[Slice::EQUIDISTANT_INDEX]->tileType);
+    }
+
+    #[Test]
     public function minorAssignmentsDisappearAfterUndoAndReturnIdenticallyAfterRecompletion(): void
     {
         $draft = $this->completedMinorFactionDraft();
@@ -221,7 +234,7 @@ class DraftTest extends TestCase
                 'minorFactionsMode' => true,
             ]),
             new Secrets('secret'),
-            [new Slice([$tiles['64'], $tiles['33'], $tiles['42'], $tiles['67'], $tiles['59']], true)],
+            [new Slice([$tiles['64'], $tiles['33'], $tiles['42'], $tiles['59'], $tiles['67']], true)],
             [
                 $factions['The Arborec'],
                 $factions['The Barony of Letnev'],

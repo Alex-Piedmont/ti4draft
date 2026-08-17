@@ -117,25 +117,25 @@ depth: Standard
 
 ### Behaviors Under Test
 
-- **B5.1** When a generated slice is created with Minor Factions enabled: tile index `4` contains a blue system reserved for replacement.
-- **B5.2** When effective slice tiles and values are requested in the enabled mode: the reserved index `4` blue system is excluded.
-- **B5.3** When effective slice constraints are evaluated in the enabled mode: resources, influence, total, wormholes, and legendary planets on reserved index `4` do not satisfy retained-slice requirements.
+- **B5.1** When a generated slice is created with Minor Factions enabled: the left-side second-ring tile at index `3` contains a blue system reserved for replacement.
+- **B5.2** When effective slice tiles and values are requested in the enabled mode: the reserved index `3` blue system is excluded.
+- **B5.3** When effective slice constraints are evaluated in the enabled mode: resources, influence, total, wormholes, and legendary planets on reserved index `3` do not satisfy retained-slice requirements.
 - **B5.4** When the same settings and seed regenerate slices: slice IDs, stored five-tile order, and reserved index are identical.
 - **B5.5** When Minor Factions is disabled: stored tiles, effective tiles, totals, constraints, and arrangement behavior match the existing slice contract.
 
 ### Edge Cases
 
-- **E5.1** When a mode-enabled custom slice contains a blue tile at index `4`: the custom slice is accepted and that tile is treated as reserved.
+- **E5.1** When a mode-enabled custom slice contains a blue tile at index `3`: the custom slice is accepted and that tile is treated as reserved.
 - **E5.2** When historical saved slices are loaded: each retains its five stored tile IDs without migration or mutation.
-- **E5.3** When slices are generated for any supported player count from three through eight: index `4` is consistently the reserved equidistant slot.
+- **E5.3** When slices are generated for any supported player count from three through eight: index `3` is consistently the reserved left-side second-ring slot.
 
 ### Failure Modes
 
-- **F5.1** When a mode-enabled custom slice has a red or nonstandard tile at index `4`: validation rejects it with a specific reserved-slot error before draft persistence.
+- **F5.1** When a mode-enabled custom slice has a red or nonstandard tile at index `3`: validation rejects it with a specific reserved-slot error before draft persistence.
 
 ### Acceptance Criteria
 
-- [ ] **AC5.1** When a Minor Factions slice is evaluated: exactly one blue system at index `4` is reserved and omitted from effective totals, satisfying R6.
+- [ ] **AC5.1** When a Minor Factions slice is evaluated: exactly one blue system at index `3` is reserved and omitted from effective totals, satisfying R6.
 - [ ] **AC5.2** When the mode is disabled or an old draft is loaded: no tile is reserved or removed from existing slice behavior, satisfying R10.
 - [ ] **AC5.3** When generated or valid custom slices are persisted: their saved representation remains five tile IDs, satisfying R10.
 
@@ -196,7 +196,7 @@ depth: Standard
 
 ### Behaviors Under Test
 
-- **B8.1** When a completed Minor Factions draft for any supported three-to-eight-player map is rendered: each speaker position's slice index `4` displays its assigned minor home-system tile.
+- **B8.1** When a completed Minor Factions draft for any supported three-to-eight-player map is rendered: each speaker position's slice index `3` displays its assigned minor home-system tile.
 - **B8.2** When full-map and individual-slice views render the same completed draft: both use the same assigned faction name and home-system tile ID at every equidistant slot.
 - **B8.3** When tile-gather output is generated for a completed draft: assigned home-system IDs are included and the reserved blue tile IDs are excluded.
 - **B8.4** When a TTS string is generated for a completed draft: assigned home-system IDs occupy the equidistant positions and reserved blue tile IDs are absent.
@@ -220,7 +220,7 @@ depth: Standard
 
 ### Acceptance Criteria
 
-- [ ] **AC8.1** When a completed mode-enabled draft is viewed or exported: every surface substitutes the same assigned home-system ID at slice index `4`, satisfying R5 and R9.
+- [ ] **AC8.1** When a completed mode-enabled draft is viewed or exported: every surface substitutes the same assigned home-system ID at slice index `3`, satisfying R5 and R9.
 - [ ] **AC8.2** When assignments have not resolved: placeholders communicate the reserved locations and no stale assignments appear, satisfying R9.
 - [ ] **AC8.3** When the mode is disabled or absent from saved data: every map and export surface matches pre-feature behavior, satisfying R10.
 - [ ] **AC8.4** When full-map, individual-slice, tile-gather, and TTS outputs are compared: each excludes the discarded blue systems and includes exactly one assigned minor home system per player, satisfying R6 and R9.
@@ -244,7 +244,7 @@ depth: Standard
 ### Slice reservation through resolved exports
 
 - **Precondition**: AU-5, AU-6, and AU-8 are complete.
-- **Behavior**: When a completed mode-enabled draft is rendered and exported: each slice's reserved index `4` is replaced by the home-system ID assigned to that slice's speaker position.
+- **Behavior**: When a completed mode-enabled draft is rendered and exported: each slice's reserved index `3` is replaced by the home-system ID assigned to that slice's speaker position.
 - **Expected outcome**: Full maps, individual slices, tile lists, and TTS strings contain the same `N` minor home systems and omit the `N` discarded blue systems.
 - **Failure mode**: When assignments are incomplete: placeholders are rendered, stale assignments are cleared, and exports do not reintroduce reserved blue systems.
 

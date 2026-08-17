@@ -6,6 +6,7 @@ namespace App\Draft;
 
 use App\TwilightImperium\Faction;
 use App\TwilightImperium\Tile;
+use App\TwilightImperium\TileType;
 
 class Draft
 {
@@ -66,6 +67,16 @@ class Draft
                 fn (string|int $tileId) => $allTiles[$tileId],
                 $sliceData['tiles'],
             );
+
+            // Early Minor Factions drafts reserved the upper second-ring slot (index 4).
+            // Move that blue system to the official left-side slot when loading them.
+            if (
+                $minorFactionsMode &&
+                $tiles[Slice::EQUIDISTANT_INDEX]->tileType !== TileType::BLUE &&
+                $tiles[4]->tileType === TileType::BLUE
+            ) {
+                [$tiles[Slice::EQUIDISTANT_INDEX], $tiles[4]] = [$tiles[4], $tiles[Slice::EQUIDISTANT_INDEX]];
+            }
 
             return new Slice($tiles, $minorFactionsMode);
         }, $slicesData);

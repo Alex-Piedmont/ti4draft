@@ -81,7 +81,7 @@ class InvalidDraftSettingsException extends \Exception
 
     public static function minorFactionEquidistantMustBeBlue(): self
     {
-        return new self('Minor Factions custom slices require a blue system at equidistant index 4');
+        return new self('Minor Factions custom slices require a blue system at equidistant index 3');
     }
 
     public static function cannotGenerateSlices(): self {

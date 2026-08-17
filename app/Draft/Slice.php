@@ -11,7 +11,8 @@ use App\TwilightImperium\Wormhole;
 
 class Slice
 {
-    public const EQUIDISTANT_INDEX = 4;
+    /** The left-side second-ring system in the persisted slice geometry. */
+    public const EQUIDISTANT_INDEX = 3;
 
     protected const MAX_ARRANGEMENT_TRIES = 100;
 

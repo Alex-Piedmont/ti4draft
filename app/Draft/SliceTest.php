@@ -335,11 +335,11 @@ class SliceTest extends TestCase
             TileFactory::make([PlanetFactory::make(['resources' => 2])]),
             TileFactory::make(),
             TileFactory::make(),
-            TileFactory::make(),
             $reserved,
+            TileFactory::make(),
         ], true);
 
-        $this->assertSame(4, Slice::EQUIDISTANT_INDEX);
+        $this->assertSame(3, Slice::EQUIDISTANT_INDEX);
         $this->assertCount(4, $slice->effectiveTiles());
         $this->assertSame(2, $slice->totalResources);
         $this->assertFalse($slice->hasLegendary());
@@ -370,8 +370,8 @@ class SliceTest extends TestCase
             TileFactory::make(),
             TileFactory::make(),
             TileFactory::make(),
-            TileFactory::make(),
             $reserved,
+            TileFactory::make(),
         ], true);
 
         $this->assertFalse($slice->validate(0, 1, 0, 100, false));
@@ -399,8 +399,8 @@ class SliceTest extends TestCase
             $retained,
             TileFactory::make(),
             TileFactory::make(),
-            TileFactory::make(),
             $reserved,
+            TileFactory::make(),
         ], true);
 
         $this->assertTrue($slice->validate(0, 0, 0, 0, true));

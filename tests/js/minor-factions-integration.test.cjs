@@ -85,7 +85,7 @@ function mapFixture(status, enabled = true, options = {}) {
             })),
             minor_factions: {
                 enabled,
-                equidistant_index: 4,
+                equidistant_index: 3,
                 status,
                 assignments: status === 'resolved' ? assignments : [],
             },
@@ -106,13 +106,13 @@ function mapFixture(status, enabled = true, options = {}) {
 test('shipped map script substitutes resolved minors in maps, tile gather, and TTS', () => {
     const { output, context } = mapFixture('resolved');
 
-    assert.deepEqual(Array.from(context.lookup(0, 4)), ['13', 'Alice', "Sardakk N'orr"]);
+    assert.deepEqual(Array.from(context.lookup(0, 3)), ['13', 'Alice', "Sardakk N'orr"]);
     assert.match(output['#map-wrap'], /ST_13\.png/);
     assert.match(output['#mapslices-wrap'], /Sardakk N'orr/);
     assert.match(output['#tile-gather'], /13/);
-    assert.doesNotMatch(output['#tile-gather'], /105|205|305/);
+    assert.doesNotMatch(output['#tile-gather'], /104|204|304/);
     assert.match(output['#tts-string'], /(?:^| )13(?: |$)/);
-    assert.doesNotMatch(output['#tts-string'], /105|205|305/);
+    assert.doesNotMatch(output['#tts-string'], /104|204|304/);
 });
 
 test('pending map output uses zero placeholders and preserves TTS geometry', () => {
@@ -120,22 +120,22 @@ test('pending map output uses zero placeholders and preserves TTS geometry', () 
     const pendingFixture = mapFixture('pending');
     const pending = pendingFixture.output['#tts-string'].split(' ');
 
-    assert.deepEqual(Array.from(pendingFixture.context.lookup(0, 4)), [0, 'Alice', 'Minor Faction']);
+    assert.deepEqual(Array.from(pendingFixture.context.lookup(0, 3)), [0, 'Alice', 'Minor Faction']);
     assert.equal(pending.length, resolved.length);
-    assert.doesNotMatch(pendingFixture.output['#tile-gather'], /105|205|305/);
+    assert.doesNotMatch(pendingFixture.output['#tile-gather'], /104|204|304/);
     assert.match(pendingFixture.output['#mapslices-wrap'], /Minor Faction/);
 
     const invalidFixture = mapFixture('invalid');
-    assert.deepEqual(Array.from(invalidFixture.context.lookup(0, 4)), [0, 'Alice', 'Minor Faction']);
-    assert.doesNotMatch(invalidFixture.output['#tile-gather'], /105|205|305/);
+    assert.deepEqual(Array.from(invalidFixture.context.lookup(0, 3)), [0, 'Alice', 'Minor Faction']);
+    assert.doesNotMatch(invalidFixture.output['#tile-gather'], /104|204|304/);
 });
 
 test('disabled map output preserves the original reserved tile', () => {
     const { output, context } = mapFixture('pending', false);
 
-    assert.deepEqual(Array.from(context.lookup(0, 4)), ['105', 'Alice', null]);
-    assert.match(output['#tile-gather'], /105/);
-    assert.match(output['#tts-string'], /(?:^| )105(?: |$)/);
+    assert.deepEqual(Array.from(context.lookup(0, 3)), ['104', 'Alice', null]);
+    assert.match(output['#tile-gather'], /104/);
+    assert.match(output['#tts-string'], /(?:^| )104(?: |$)/);
 });
 
 test('all supported maps substitute every speaker position regardless of player object order', () => {
@@ -152,14 +152,14 @@ test('all supported maps substitute every speaker position regardless of player 
         });
 
         for (const assignment of assignments) {
-            assert.deepEqual(Array.from(context.lookup(assignment.position, 4)), [
+            assert.deepEqual(Array.from(context.lookup(assignment.position, 3)), [
                 assignment.home_system,
                 context.draft.config.players[assignment.position],
                 assignment.faction,
             ]);
             assert.match(output['#tile-gather'], new RegExp(`(?:^|, )${assignment.home_system}(?:,|$)`));
             assert.match(output['#tts-string'], new RegExp(`(?:^| )${assignment.home_system}(?: |$)`));
-            assert.doesNotMatch(output['#tile-gather'], new RegExp(`${assignment.position + 1}05`));
+            assert.doesNotMatch(output['#tile-gather'], new RegExp(`${assignment.position + 1}04`));
         }
 
         assert.match(output['#map-wrap'], /src="\/img\/tiles\/DS_ilyxum\.png"/);
@@ -190,10 +190,10 @@ test('malformed resolved assignments fail closed without reserved or undefined t
         ],
     });
 
-    assert.deepEqual(Array.from(fixture.context.lookup(0, 4)), [0, 'Alice', 'Minor Faction']);
-    assert.doesNotMatch(fixture.output['#map-wrap'], /undefined|ST_105\.png/);
-    assert.doesNotMatch(fixture.output['#tile-gather'], /undefined|105/);
-    assert.doesNotMatch(fixture.output['#tts-string'], /undefined|(?:^| )105(?: |$)/);
+    assert.deepEqual(Array.from(fixture.context.lookup(0, 3)), [0, 'Alice', 'Minor Faction']);
+    assert.doesNotMatch(fixture.output['#map-wrap'], /undefined|ST_104\.png/);
+    assert.doesNotMatch(fixture.output['#tile-gather'], /undefined|104/);
+    assert.doesNotMatch(fixture.output['#tts-string'], /undefined|(?:^| )104(?: |$)/);
 });
 
 test('shipped draft refresh invalidates cached maps across readiness transitions', () => {
@@ -208,7 +208,7 @@ test('shipped draft refresh invalidates cached maps across readiness transitions
             done: true,
             config: { players: [], alliance: null },
             draft: { players: {}, current: null, log: [] },
-            minor_factions: { enabled: true, equidistant_index: 4, status: 'pending', assignments: [] },
+            minor_factions: { enabled: true, equidistant_index: 3, status: 'pending', assignments: [] },
         },
     };
     context.window = context;
@@ -277,7 +277,7 @@ function draftTransitionFixture() {
         done: true,
         config: { players: [], alliance: null },
         draft: { players: {}, current: null, log: [] },
-        minor_factions: { enabled: true, equidistant_index: 4, status: 'pending', assignments: [] },
+        minor_factions: { enabled: true, equidistant_index: 3, status: 'pending', assignments: [] },
     };
     const context = {
         console,
@@ -305,7 +305,7 @@ function draftTransitionFixture() {
                 ...initialDraft,
                 minor_factions: {
                     enabled: true,
-                    equidistant_index: 4,
+                    equidistant_index: 3,
                     status,
                     assignments: status === 'resolved'
                         ? [{ position: 0, faction: 'Minor', home_system: '5' }]

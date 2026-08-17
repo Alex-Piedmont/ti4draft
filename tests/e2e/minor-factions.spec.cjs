@@ -35,6 +35,8 @@ test('minor factions resolve across maps and return to placeholders after undo',
     await expect(page).toHaveURL(/\/d\/[^?]+\?fresh=1$/);
     await page.locator('#session-popup .close-popup').click();
     await expect(page.locator('.minor-faction-placeholder')).toHaveCount(14);
+    await expect(page.locator('img.tile-3.minor-faction-placeholder')).toHaveCount(14);
+    await expect(page.locator('img.tile-4.minor-faction-placeholder')).toHaveCount(0);
     await expect(page.locator('#minor-factions')).toHaveAttribute('data-status', 'pending');
 
     for (const category of ['slice', 'faction', 'position']) {
@@ -60,6 +62,9 @@ test('minor factions resolve across maps and return to placeholders after undo',
     await page.getByRole('link', {name: 'Map', exact: true}).click();
     const resolvedTts = (await page.locator('#tts-string').innerText()).trim().split(/\s+/);
     const resolvedTiles = (await page.locator('#tile-gather').innerText()).split(/,\s*/);
+    await expect(page.locator('#mapslices-wrap .slice .tile[data-q="-1"][data-r="0"] span')).toHaveText(
+        assignments.map(({faction}) => faction),
+    );
     const reservedIndexes = [];
     for (const {faction, homeSystem} of assignments) {
         await expect(page.locator('#mapview-hyperlane')).toContainText(faction);

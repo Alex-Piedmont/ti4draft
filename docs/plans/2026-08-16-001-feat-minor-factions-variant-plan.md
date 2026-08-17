@@ -14,7 +14,7 @@ status: Completed
 
 The application already persists the exact randomized faction pool used by a draft, records player faction and position picks, renders a resolved map from speaker positions and slice tile indices, and supports backward-compatible optional settings. Minor Factions can therefore be added without a second mutable assignment store: after the required picks resolve, assignments can be derived from the persisted faction pool by removing selected playable factions and explicitly ineligible factions, preserving the seeded pool order, and pairing the remaining candidates to speaker positions.
 
-The equidistant map location is slice tile index `4` in the current slice geometry and all supported 3–8 player map templates. Minor Factions mode shall reserve that location for a minor home system and remove its original blue system from the resolved map. Eligibility must be explicit because some factions do not resolve to an ordinary planetary home system: Ghosts of Creuss has a non-planet gateway tile, Council Keleres has no single home-system tile, and Crimson Rebellion and Ghoti Wayfarers have recorded home tiles with no planets. No institutional learnings exist under `docs/solutions/` or fallback memory locations.
+The official left-side second-ring location is slice tile index `3` in the current slice geometry and all supported 3–8 player map templates. Minor Factions mode shall reserve that location for a minor home system and remove its original blue system from the resolved map. Eligibility must be explicit because some factions do not resolve to an ordinary planetary home system: Ghosts of Creuss has a non-planet gateway tile, Council Keleres has no single home-system tile, and Crimson Rebellion and Ghoti Wayfarers have recorded home tiles with no planets. No institutional learnings exist under `docs/solutions/` or fallback memory locations.
 
 ## Requirements Trace
 
@@ -25,7 +25,7 @@ The equidistant map location is slice tile index `4` in the current slice geomet
 | R3: Player-selected factions are excluded from minor candidates. | Direct request | AU-6 |
 | R4: Factions that cannot serve as minor factions are explicitly marked and skipped. | Direct request | AU-1, AU-4, AU-6 |
 | R5: One eligible minor faction is assigned per player to the equidistant slot in speaker order. | Official Minor Factions rules; direct request | AU-5, AU-6, AU-8 |
-| R6: Minor Factions uses one fewer blue system per player by reserving slice tile index `4`. | Official Minor Factions rules | AU-5, AU-8 |
+| R6: Minor Factions uses one fewer blue system per player by reserving the left-side second-ring slice tile at index `3`. | Official Minor Factions rules | AU-5, AU-8 |
 | R7: Assignment selection is deterministic across reload, regeneration, undo, and recompletion. | Existing seeded draft behavior | AU-4, AU-6 |
 | R8: Draft creation fails before play when the generated pool cannot guarantee enough eligible unselected factions. | Derived safety requirement | AU-2, AU-4 |
 | R9: Public API draft data, configuration, resolved maps, individual slices, tile lists, and TTS strings expose the mode and assignments without persisting derived snapshots. | Existing application surfaces | AU-2, AU-6, AU-8 |
@@ -94,7 +94,7 @@ Feature: Minor faction map output
   Scenario: Render a completed Minor Factions map
     Given a completed Minor Factions draft
     When the map is rendered
-    Then each speaker position's slice tile index 4 shows its assigned minor home system
+    Then each speaker position's left-side second-ring tile at slice index 3 shows its assigned minor home system
     And the full map, individual slices, tile list, and TTS string use the same home-system IDs
 
   Scenario: Render a standard draft
@@ -132,7 +132,7 @@ Acceptance: R2, R11
 - Validation and faction-pool construction that guarantee at least one eligible leftover per player even if every player selects an eligible faction.
 - Candidate derivation strictly from the persisted draft faction pool, never from all factions or merely enabled editions.
 - Deterministic assignment in persisted faction-pool order to player speaker positions.
-- Reservation and replacement of equidistant slice tile index `4`.
+- Reservation and replacement of the left-side second-ring slice tile at index `3`.
 - Public API exposure and browser map/export presentation, while derived assignment snapshots remain absent from persisted draft files.
 - Server-side faction-pick membership validation.
 - Backward-compatible loading of saved drafts created before the setting existed.
@@ -244,26 +244,26 @@ Acceptance: R2, R11
 - `docker compose exec app vendor/bin/phpunit app/Draft/Commands/GenerateFactionPoolTest.php` -- exits 0
 
 ### AU-5: Reserve the equidistant blue slot
-- [x] **Goal:** Minor Factions slices resolve with one fewer blue system and a reserved equidistant slot at tile index `4`.
+- [x] **Goal:** Minor Factions slices resolve with one fewer blue system and a reserved left-side second-ring slot at tile index `3`.
 **Requirements:** R5, R6, R10
 **Dependencies:** AU-2
 **Files:**
-- `app/Draft/Commands/GenerateSlicePool.php` -- Arrange mode-enabled slices so tile index `4` is a replaceable blue system.
+- `app/Draft/Commands/GenerateSlicePool.php` -- Arrange mode-enabled slices so the left-side second-ring tile at index `3` is a replaceable blue system.
 - `app/Draft/Commands/GenerateSlicePoolTest.php` -- Cover reserved-slot color, determinism, custom-slice behavior, and mode-off parity.
 - `app/Draft/Slice.php` -- Expose the equidistant index and effective tile/value behavior without changing stored historical slices.
 - `app/Draft/SliceTest.php` -- Cover equidistant-slot and effective-slice calculations.
 **Approach:**
 - Define the equidistant index in the slice domain and expose it through the public mode payload so browser code does not duplicate the literal.
-- For generated mode-enabled slices, ensure index `4` contains a blue tile that is omitted from the resolved map.
-- Keep the stored five-tile slice shape for persistence compatibility; treat index `4` as reserved in mode-enabled output.
-- Apply minimum/maximum resource, influence, total, wormhole, and legendary constraints to the four retained systems; the discarded index `4` tile cannot satisfy any constraint.
+- For generated mode-enabled slices, ensure index `3` contains a blue tile that is omitted from the resolved map.
+- Keep the stored five-tile slice shape for persistence compatibility; treat index `3` as reserved in mode-enabled output.
+- Apply minimum/maximum resource, influence, total, wormhole, and legendary constraints to the four retained systems; the discarded index `3` tile cannot satisfy any constraint.
 - Exclude the reserved blue tile from mode-enabled effective slice totals shown for draft evaluation because it will not exist in the final map.
-- IF custom slices are supplied with the mode: require their index `4` tile to be blue so replacement has official one-fewer-blue semantics.
+- IF custom slices are supplied with the mode: require their index `3` tile to be blue so replacement has official one-fewer-blue semantics.
 **Test Scenarios:**
-- When a mode-enabled generated slice is produced: index `4` is blue and excluded from effective totals.
+- When a mode-enabled generated slice is produced: index `3` is blue and excluded from effective totals.
 - When a reserved blue tile contains a wormhole, legendary planet, resources, or influence: none of those values satisfy effective-slice generation constraints.
 - When the same seed is reused: slice IDs and reserved indices remain identical.
-- When a mode-enabled custom slice has a red or nonstandard index `4`: validation fails.
+- When a mode-enabled custom slice has a red or nonstandard index `3`: validation fails.
 - When mode is disabled: stored tiles, totals, and arrangement behavior remain unchanged.
 **Verification:**
 - `docker compose exec app vendor/bin/phpunit app/Draft/Commands/GenerateSlicePoolTest.php app/Draft/SliceTest.php` -- exits 0
@@ -327,7 +327,7 @@ Acceptance: R2, R11
 - `templates/draft.php` -- Show mode configuration, assignment table, setup guidance, and equidistant placeholders before resolution.
 - `app/Http/RequestHandlers/HandleViewDraftRequestTest.php` -- Assert rendered resolved, pending, invalid, and disabled presentation states.
 - `js/minor-factions.js` -- Resolve server-described equidistant substitutions and export tokens through pure testable helpers.
-- `js/generate-map.js` -- Replace slice index `4` with the assignment home-system ID in full maps, individual slices, tile lists, and TTS strings.
+- `js/generate-map.js` -- Replace slice index `3` with the assignment home-system ID in full maps, individual slices, tile lists, and TTS strings.
 - `js/draft.js` -- Refresh assignment presentation and invalidate cached maps when picks, undo, or polling changes resolution.
 - `tests/js/minor-factions.test.cjs` -- Verify substitution, unresolved placeholders, coordinate preservation, tile-gather output, and TTS token behavior.
 - `tests/js/minor-factions-integration.test.cjs` -- Execute the shipped map/draft scripts through `node:vm` with a minimal DOM/jQuery fixture.
@@ -336,7 +336,7 @@ Acceptance: R2, R11
 **Approach:**
 - Consume only server-derived assignment records; do not recompute eligibility or candidates in JavaScript.
 - Keep DOM-independent calculation and substitution behavior in the pure helper, then verify the shipped script wiring separately.
-- Consume the server-provided `equidistant_index`; do not duplicate the literal `4` in browser assignment logic.
+- Consume the server-provided `equidistant_index`; do not duplicate the literal `3` in browser assignment logic.
 - Centralize substitution through the pure helper used by `lookup()` so every existing map/export consumer receives the same tile.
 - Before assignments resolve, display a neutral Minor Faction placeholder and emit `0` at every reserved TTS coordinate; preserve TTS token count and coordinate ordering while excluding the discarded blue tile.
 - After assignments resolve, label each system with the faction name and home-system tile ID.
@@ -344,7 +344,7 @@ Acceptance: R2, R11
 - Use a dependency-free `node:vm` integration fixture for fast shipped-script coverage, plus a development-only Playwright test for the real UI/server completion and undo paths required by the final integration gate.
 - IF mode is disabled: bypass all new substitution and presentation paths.
 **Test Scenarios:**
-- When a completed 3–8 player Minor Factions draft is rendered: each position receives its assignment at tile index `4`.
+- When a completed 3–8 player Minor Factions draft is rendered: each position receives its assignment at the left-side second-ring tile at index `3`.
 - When full-map and individual-slice views are compared: they use identical minor home-system IDs.
 - When tile gather and TTS output are generated: they include minor home systems and exclude reserved blue tiles.
 - When assignments are unresolved: placeholders appear, TTS reserved coordinates contain `0`, token count is unchanged, and no stale faction assignment is shown.
@@ -389,7 +389,7 @@ AU-7 is independently committable but must ship before the feature is considered
 - **Preserve pool order instead of reseeding:** The pool is already seeded, randomized, and persisted. Filtering it produces stable assignments and avoids the regeneration seed mismatch in current settings.
 - **Require an eligible worst-case reserve:** At least `2 × player count` eligible entries ensures players can choose any eligible factions and still leave one eligible minor per player.
 - **Model eligibility explicitly from a settled rule:** A supported faction is eligible only when its recorded home-system ID resolves to a placeable tile with at least one planet. Edition and tile tier alone are insufficient.
-- **Publish the reserved index:** The slice domain owns index `4` and public output exposes it; JavaScript consumes that field rather than maintaining a second constant.
+- **Publish the reserved index:** The slice domain owns index `3` and public output exposes it; JavaScript consumes that field rather than maintaining a second constant.
 - **Keep five stored tile IDs:** Existing JSON remains readable and structurally stable; mode-aware behavior treats the reserved blue tile as discarded in effective output.
 
 ## Open Questions
@@ -398,7 +398,7 @@ AU-7 is independently committable but must ship before the feature is considered
 
 - Which factions may become minors: only eligible, unselected factions from the persisted draft pool; never factions merely present in an enabled edition.
 - How assignments are randomized: preserve the already-seeded persisted faction-pool order and take the first eligible leftovers.
-- How assignments map to the board: pair candidates to numeric speaker positions and substitute slice tile index `4`.
+- How assignments map to the board: pair candidates to numeric speaker positions and substitute the left-side second-ring slice tile at index `3`.
 - When assignments appear: only after every faction and speaker-position pick is present.
 - How many faction options are required: the final pool must contain at least two eligible factions per player.
 - Initial exceptional-faction handling: Ghosts of Creuss, Council Keleres, Crimson Rebellion, and Ghoti Wayfarers are ineligible; Firmament/Obsidian is eligible through tile `96a`.
@@ -426,11 +426,11 @@ AU-7 is independently committable but must ship before the feature is considered
 |------|-----------|--------|------------|
 | Eligibility metadata is wrong for a special or homebrew faction. | Medium | High | Apply the single planetary-home-system rule to every record, require explicit data, and fail data tests when an eligible record does not resolve to a planetary tile. |
 | A custom-faction request leaves insufficient room for the eligible reserve. | Medium | Medium | Preserve custom choices but reject impossible pool sizes before saving with an actionable error. |
-| Equidistant replacement changes slice valuation after players evaluated options. | Medium | High | Reserve index `4` from creation, mark it as a placeholder, and exclude its discarded blue tile from effective totals. |
+| Equidistant replacement changes slice valuation after players evaluated options. | Medium | High | Reserve index `3` from creation, mark it as a placeholder, and exclude its discarded blue tile from effective totals. |
 | JavaScript map output diverges between full map, slice map, and TTS string. | Medium | High | Perform substitution in the shared `lookup()` seam and exercise all outputs in acceptance checks. |
 | Global RNG use makes a new shuffle disturb historical seeds. | Medium | High | Add no assignment shuffle; filter persisted pool order and assert mode-disabled seed fixtures remain unchanged. |
 | Older draft fixtures break when new settings or payload fields are introduced. | Medium | High | Default absent settings to disabled and cover every historical fixture through the full suite. |
-| Mode-enabled custom slices reserve a non-blue tile. | Low | Medium | Validate custom slice index `4` during settings/slice validation and return a specific error. |
+| Mode-enabled custom slices reserve a non-blue tile. | Low | Medium | Validate custom slice index `3` during settings/slice validation and return a specific error. |
 
 ## Sources & References
 

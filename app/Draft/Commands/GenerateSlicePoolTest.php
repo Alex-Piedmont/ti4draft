@@ -320,7 +320,7 @@ class GenerateSlicePoolTest extends TestCase
     {
         $generator = new GenerateSlicePool(DraftSettingsFactory::make([
             'numberOfSlices' => 1,
-            'customSlices' => [['64', '33', '42', '59', '67']],
+            'customSlices' => [['64', '33', '42', '67', '59']],
             'minorFactionsMode' => true,
         ]));
 
@@ -335,7 +335,7 @@ class GenerateSlicePoolTest extends TestCase
     #[Test]
     public function minorFactionsCustomSlicesPreserveFiveTilesAndReserveTheBlueTile(): void
     {
-        $ids = ['64', '33', '42', '67', '59'];
+        $ids = ['64', '33', '42', '59', '67'];
         $slice = (new GenerateSlicePool(DraftSettingsFactory::make([
             'numberOfSlices' => 1,
             'customSlices' => [$ids],
@@ -356,7 +356,7 @@ class GenerateSlicePoolTest extends TestCase
 
     #[Test]
     #[DataProvider('supportedPlayerCounts')]
-    public function minorFactionsReservesIndexFourForEverySupportedPlayerCount(int $playerCount): void
+    public function minorFactionsReservesTheLeftSecondRingIndexForEverySupportedPlayerCount(int $playerCount): void
     {
         $settings = DraftSettingsFactory::make([
             'numberOfPlayers' => $playerCount,
@@ -376,7 +376,8 @@ class GenerateSlicePoolTest extends TestCase
 
         $this->assertCount($playerCount, $slices);
         foreach ($slices as $slice) {
-            $this->assertSame(TileType::BLUE, $slice->tiles[4]->tileType);
+            $this->assertSame(3, Slice::EQUIDISTANT_INDEX);
+            $this->assertSame(TileType::BLUE, $slice->tiles[Slice::EQUIDISTANT_INDEX]->tileType);
             $this->assertCount(5, $slice->tileIds());
             $this->assertCount(4, $slice->effectiveTiles());
         }
