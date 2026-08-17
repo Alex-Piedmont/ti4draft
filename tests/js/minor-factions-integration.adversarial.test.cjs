@@ -4,12 +4,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const projectRoot = path.resolve(__dirname, '../..');
-const draftSource = fs.readFileSync(path.join(projectRoot, 'js/draft.js'), 'utf8');
+const draftSource = fs.readFileSync(path.resolve(__dirname, '../../js/draft.js'), 'utf8');
 
-function fixture() {
+function harness() {
     const handlers = new Map();
-    const ajaxResponses = [];
+    const responses = [];
 
     function $(selector) {
         const key = typeof selector === 'string' ? selector : 'document';
@@ -41,21 +40,20 @@ function fixture() {
         };
         return chain;
     }
-    $.ajax = (request) => request.success(ajaxResponses.shift());
+    $.ajax = (request) => request.success(responses.shift());
 
-    const initial = {
-        id: 'draft',
-        done: true,
-        config: { players: [], alliance: null },
-        draft: { players: {}, current: null, log: [] },
-        slices: [],
-    };
     const context = {
         console,
         document: { addEventListener() {} },
         location: { hash: '' },
         localStorage: { getItem() { return null; }, removeItem() {}, setItem() {} },
-        draft: initial,
+        draft: {
+            id: 'draft',
+            done: true,
+            config: { players: [], alliance: null },
+            draft: { players: {}, current: null, log: [] },
+            slices: [],
+        },
         routes: { data: '/draft' },
         $,
     };
@@ -63,30 +61,35 @@ function fixture() {
     vm.createContext(context);
     vm.runInContext(draftSource, context, { filename: 'draft.js' });
 
-    return { ajaxResponses, context };
+    return { context, responses };
 }
 
-test('draft polling preserves authoritative per-slice Minor Faction state before picks', () => {
-    const { ajaxResponses, context } = fixture();
-    const slices = [{
-        tiles: ['19', '20', '21', '4', '22'],
-        minor_faction: { name: 'The Embers of Muaat', tile_id: '4', render_token: '4' },
+test('successive polls preserve exact enabled assignments and do not synthesize disabled metadata', () => {
+    const { context, responses } = harness();
+    const assignment = {
+        name: 'Augurs of Ilyxum',
+        tile_id: '901',
+        render_token: 'DS_ilyxum',
+    };
+    const enabled = [{
+        tiles: ['19', '20', '21', '901', '22'],
+        minor_faction: assignment,
         equidistant: { index: 3, q: -1, r: 0 },
+        total_resources: 8,
+        total_influence: 7,
     }];
-    ajaxResponses.push({
-        ...context.draft,
-        slices,
-    });
-    context.map_cached = true;
-
+    responses.push({ ...context.draft, slices: enabled });
     context.refreshData();
 
-    assert.deepEqual(JSON.parse(JSON.stringify(context.draft.slices)), slices);
-    assert.equal(context.map_cached, false);
-});
+    assert.deepEqual(JSON.parse(JSON.stringify(context.draft.slices)), enabled);
+    assert.deepEqual(Object.keys(context.draft.slices[0].minor_faction), [
+        'name', 'tile_id', 'render_token',
+    ]);
 
-test('draft UI no longer derives Minor Factions from picks or top-level readiness state', () => {
-    assert.doesNotMatch(draftSource, /refresh_minor_factions/);
-    assert.doesNotMatch(draftSource, /draft\.minor_factions/);
-    assert.doesNotMatch(draftSource, /Assignments appear after/);
+    const disabled = [{ tiles: ['19', '20', '21', '22', '23'] }];
+    responses.push({ ...context.draft, slices: disabled });
+    context.refreshData();
+
+    assert.deepEqual(JSON.parse(JSON.stringify(context.draft.slices)), disabled);
+    assert.equal('minor_faction' in context.draft.slices[0], false);
 });

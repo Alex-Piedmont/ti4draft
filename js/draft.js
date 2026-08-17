@@ -391,9 +391,6 @@ function restoreSession(e) {
 }
 
 function draft_status() {
-
-    refresh_minor_factions();
-
     let current_player = find_player(draft.draft.current);
 
     let log = '';
@@ -513,44 +510,6 @@ function draft_status() {
             $('button.draft[data-category="faction"]').hide();
             $('button.draft[data-category="slice"]').hide();
         }
-    }
-}
-
-function refresh_minor_factions() {
-    const mode = draft.minor_factions;
-    const $panel = $('#minor-factions');
-
-    if (!mode || !mode.enabled) {
-        $panel.hide();
-        return;
-    }
-
-    $panel.show().attr('data-status', mode.status);
-
-    if (mode.status === 'resolved') {
-        let rows = '';
-        for (const assignment of mode.assignments) {
-            rows += '<tr data-position="' + assignment.position + '">' +
-                '<td>' + ordinal(Number(assignment.position) + 1) + '</td>' +
-                '<td>' + escape_html(assignment.faction) + '</td>' +
-                '<td>' + escape_html(assignment.home_system) + '</td>' +
-                '</tr>';
-        }
-
-        $('.minor-factions-content').html(
-            '<table class="minor-factions-assignments">' +
-            '<thead><tr><th>Position</th><th>Faction</th><th>Home system</th></tr></thead>' +
-            '<tbody>' + rows + '</tbody></table>',
-        );
-    } else if (mode.status === 'invalid') {
-        $('.minor-factions-content').html(
-            '<p class="minor-factions-error">Minor Factions configuration error: ' +
-            escape_html(mode.error) + '</p>',
-        );
-    } else {
-        $('.minor-factions-content').html(
-            '<p class="minor-factions-pending">Assignments appear after every faction and speaker position has been selected.</p>',
-        );
     }
 }
 

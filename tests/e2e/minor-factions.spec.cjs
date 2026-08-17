@@ -12,68 +12,82 @@ async function pickFirstVisible(page, category) {
     expect((await response).ok()).toBe(true);
 }
 
-test('minor factions resolve across maps and return to placeholders after undo', async ({page}) => {
+async function publicSlices(page) {
+    return page.evaluate(() => window.draft.slices.map((slice) => ({
+        tiles: slice.tiles,
+        minor_faction: slice.minor_faction,
+        equidistant: slice.equidistant,
+        total_resources: slice.total_resources,
+        total_influence: slice.total_influence,
+        optimal_resources: slice.optimal_resources,
+        optimal_influence: slice.optimal_influence,
+        specialties: slice.specialties,
+        wormholes: slice.wormholes,
+        legendaries: slice.legendaries,
+    })));
+}
+
+test('face-up Minor Factions remain attached to slices through picks, maps, reload, and undo', async ({page}) => {
     await page.goto('/');
 
-    await page.getByRole('spinbutton', {name: 'Number of players'}).fill('6');
-    const names = ['Alice', 'Bob', 'Carol', 'Dave', 'Eve', 'Frank'];
+    await page.locator('#num_players').fill('3');
+    const names = ['Alice', 'Bob', 'Carol'];
     const playerNames = page.getByRole('textbox', {name: 'Player Name'});
     for (let i = 0; i < names.length; i++) {
         await playerNames.nth(i).fill(names[i]);
     }
 
     await page.locator('#minor_factions_toggle').check();
-    await page.locator('#num_factions').fill('12');
+    await page.locator('#num_slices').fill('4');
+    await page.locator('#num_factions').fill('3');
     await page.getByRole('textbox', {name: 'Game Name'}).fill(`Minor Factions E2E ${Date.now()}`);
     await page.getByRole('link', {name: 'Show', exact: true}).click();
-    await expect(page.getByRole('spinbutton', {name: 'Minimum Optimal Influence'})).toHaveValue('2');
-    await expect(page.getByRole('spinbutton', {name: 'Minimum Optimal Resources'})).toHaveValue('1');
-    await expect(page.getByRole('spinbutton', {name: 'Minimum Optimal Total'})).toHaveValue('5');
-    await expect(page.getByRole('spinbutton', {name: 'Maximum Optimal Total'})).toHaveValue('10');
+    await expect(page.getByRole('spinbutton', {name: 'Minimum Optimal Influence'})).toHaveValue('4');
+    await expect(page.getByRole('spinbutton', {name: 'Minimum Optimal Resources'})).toHaveValue('2.5');
+    await expect(page.getByRole('spinbutton', {name: 'Minimum Optimal Total'})).toHaveValue('9');
+    await expect(page.getByRole('spinbutton', {name: 'Maximum Optimal Total'})).toHaveValue('13');
 
     await page.getByRole('button', {name: 'Generate'}).click();
     await expect(page).toHaveURL(/\/d\/[^?]+\?fresh=1$/);
     await page.locator('#session-popup .close-popup').click();
-    await expect(page.locator('.minor-faction-placeholder')).toHaveCount(14);
-    await expect(page.locator('img.tile-3.minor-faction-placeholder')).toHaveCount(14);
-    await expect(page.locator('img.tile-4.minor-faction-placeholder')).toHaveCount(0);
-    await expect(page.locator('#minor-factions')).toHaveAttribute('data-status', 'pending');
+
+    const initialSlices = await publicSlices(page);
+    expect(initialSlices).toHaveLength(4);
+    expect(new Set(initialSlices.map((slice) => slice.minor_faction.name)).size).toBe(4);
+    for (const slice of initialSlices) {
+        expect(Object.keys(slice.minor_faction).sort()).toEqual(['name', 'render_token', 'tile_id']);
+        expect(slice.tiles[slice.equidistant.index]).toBe(slice.minor_faction.tile_id);
+        expect(slice.equidistant).toEqual({index: 3, q: -1, r: 0});
+    }
+
+    await expect(page.locator('#minor-factions')).toHaveAttribute('data-status', 'assigned');
+    await expect(page.locator('.minor-factions-assignments tbody tr')).toHaveCount(4);
+    await expect(page.locator('.slice.option .minor-faction-name')).toHaveCount(4);
+    await expect(page.locator('.slice.option .slice-graph .wrap > img.tile-3.minor-faction-home:not(.zoom)')).toHaveCount(4);
+    await expect(page.locator('.minor-faction-placeholder')).toHaveCount(0);
+
+    const cards = page.locator('.slice.option');
+    for (let index = 0; index < initialSlices.length; index++) {
+        const slice = initialSlices[index];
+        const card = cards.nth(index);
+        await expect(card.locator('.minor-faction-name')).toContainText(slice.minor_faction.name);
+        await expect(card.locator('.resources').first()).toHaveText(String(slice.total_resources));
+        await expect(card.locator('.influence').first()).toHaveText(String(slice.total_influence));
+        await expect(card.locator('.tech-specialty')).toHaveCount(slice.specialties.length);
+        await expect(card.locator('.wormhole')).toHaveCount(slice.wormholes.length);
+        await expect(card.locator('.legendary')).toHaveCount(slice.legendaries.length);
+    }
 
     for (const category of ['slice', 'faction', 'position']) {
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < names.length; i++) {
             await pickFirstVisible(page, category);
         }
     }
 
-    const rows = page.locator('.minor-factions-assignments tbody tr');
-    await expect(rows).toHaveCount(6);
-    await expect(page.locator('#minor-factions')).toHaveAttribute('data-status', 'resolved');
-
-    const assignments = await rows.evaluateAll((items) => items.map((row) => {
-        const cells = row.querySelectorAll('td');
-        return {
-            faction: cells[1].textContent.trim(),
-            homeSystem: cells[2].textContent.trim(),
-        };
-    }));
-    expect(new Set(assignments.map(({faction}) => faction)).size).toBe(6);
-    expect(new Set(assignments.map(({homeSystem}) => homeSystem)).size).toBe(6);
-
-    await page.getByRole('link', {name: 'Map', exact: true}).click();
-    const resolvedTts = (await page.locator('#tts-string').innerText()).trim().split(/\s+/);
-    const resolvedTiles = (await page.locator('#tile-gather').innerText()).split(/,\s*/);
-    await expect(page.locator('#mapslices-wrap .slice .tile[data-q="-1"][data-r="0"] span')).toHaveText(
-        assignments.map(({faction}) => faction),
-    );
-    const reservedIndexes = [];
-    for (const {faction, homeSystem} of assignments) {
-        await expect(page.locator('#mapview-hyperlane')).toContainText(faction);
-        expect(resolvedTiles).toContain(homeSystem);
-        const index = resolvedTts.indexOf(homeSystem);
-        expect(index).toBeGreaterThanOrEqual(0);
-        reservedIndexes.push(index);
-    }
-    expect(new Set(reservedIndexes).size).toBe(6);
+    expect(await publicSlices(page)).toEqual(initialSlices);
+    await page.reload();
+    expect(await publicSlices(page)).toEqual(initialSlices);
+    await expect(page.locator('.slice.option .minor-faction-name')).toHaveCount(4);
 
     await page.getByRole('link', {name: 'Log', exact: true}).click();
     const undoResponse = page.waitForResponse((candidate) => (
@@ -82,16 +96,9 @@ test('minor factions resolve across maps and return to placeholders after undo',
     await page.getByRole('button', {name: 'Undo last action'}).click();
     expect((await undoResponse).ok()).toBe(true);
 
+    expect(await publicSlices(page)).toEqual(initialSlices);
     await page.getByRole('link', {name: 'Draft', exact: true}).click();
-    await expect(page.locator('#minor-factions')).toHaveAttribute('data-status', 'pending');
-    await expect(page.locator('.minor-factions-pending')).toBeVisible();
-
-    await page.getByRole('link', {name: 'Map', exact: true}).click();
-    const pendingTts = (await page.locator('#tts-string').innerText()).trim().split(/\s+/);
-    const pendingTiles = (await page.locator('#tile-gather').innerText()).split(/,\s*/);
-    for (let i = 0; i < reservedIndexes.length; i++) {
-        expect(pendingTts[reservedIndexes[i]]).toBe('0');
-        expect(pendingTiles).not.toContain(assignments[i].homeSystem);
-    }
-    await expect(page.locator('#mapview-hyperlane')).toContainText('Minor Faction');
+    await expect(page.locator('#minor-factions')).toHaveAttribute('data-status', 'assigned');
+    await expect(page.locator('.slice.option .minor-faction-name')).toHaveCount(4);
+    await expect(page.locator('.minor-faction-placeholder')).toHaveCount(0);
 });

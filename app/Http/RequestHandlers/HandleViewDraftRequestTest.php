@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace App\Http\RequestHandlers;
 
-use App\Draft\Player;
+use App\Draft\Commands\GenerateDraft;
+use App\Draft\MinorFaction;
+use App\Draft\Slice;
 use App\Http\HtmlResponse;
 use App\Http\HttpRequest;
+use App\Testing\Factories\DraftSettingsFactory;
 use App\Testing\RequestHandlerTestCase;
 use App\Testing\UsesTestDraft;
+use App\TwilightImperium\Edition;
 use App\TwilightImperium\Faction;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -46,153 +50,96 @@ class HandleViewDraftRequestTest extends RequestHandlerTestCase
     }
 
     #[Test]
-    public function itRendersPendingMinorFactionGuidanceAndReservedSlicePlaceholders(): void
+    public function itRendersFaceUpMinorFactionsAndTheirHomeSystemsBeforeAnyPicks(): void
     {
-        $this->testDraft->settings->minorFactionsMode = true;
-        app()->repository->save($this->testDraft);
+        $this->replaceWithMinorFactionDraft();
 
         $body = $this->handleRequest(['id' => $this->testDraft->id])->getBody();
 
         $this->assertStringContainsString('id="minor-factions"', $body);
-        $this->assertStringContainsString('data-status="pending"', $body);
-        $this->assertStringContainsString('Assignments appear after every faction and speaker position', $body);
-        $this->assertStringContainsString('Reserved for a Minor Faction', $body);
-        $this->assertStringContainsString('<label>Minor Factions:</label> <strong>yes</strong>', $body);
-    }
-
-    #[Test]
-    public function itRendersResolvedMinorFactionAssignments(): void
-    {
-        $leftovers = $this->completeMinorFactionPicks(false);
-
-        $body = $this->handleRequest(['id' => $this->testDraft->id])->getBody();
-
-        $this->assertStringContainsString('data-status="resolved"', $body);
-        $this->assertStringContainsString('minor-factions-assignments', $body);
-        $this->assertStringContainsString($leftovers[0]->name, $body);
-        $this->assertStringContainsString($leftovers[0]->homesystem(), $body);
-    }
-
-    #[Test]
-    public function itRendersInvalidMinorFactionResolutionWithoutPartialRows(): void
-    {
-        $this->completeMinorFactionPicks(true);
-
-        $body = $this->handleRequest(['id' => $this->testDraft->id])->getBody();
-
-        $this->assertStringContainsString('data-status="invalid"', $body);
-        $this->assertStringContainsString('insufficient_eligible_candidates', $body);
-        $this->assertStringNotContainsString('minor-factions-assignments', $body);
-    }
-
-    #[Test]
-    public function disabledDraftDoesNotRenderMinorFactionPresentation(): void
-    {
-        $body = $this->handleRequest(['id' => $this->testDraft->id])->getBody();
-
-        $this->assertStringNotContainsString('id="minor-factions"', $body);
+        $this->assertStringContainsString('data-status="assigned"', $body);
+        $this->assertSame(count($this->testDraft->slicePool), substr_count($body, '<tr data-slice="'));
+        foreach ($this->testDraft->slicePool as $slice) {
+            $minor = $slice->minorFaction;
+            $this->assertStringContainsString($minor->faction->name, $body);
+            $tileAsset = str_starts_with($minor->faction->homesystem(), 'DS_')
+                ? $minor->faction->homesystem()
+                : 'ST_' . $minor->faction->homesystem();
+            $this->assertStringContainsString($tileAsset . '.png', $body);
+            $this->assertStringContainsString(htmlspecialchars($minor->faction->name . ' Minor Faction'), $body);
+        }
         $this->assertStringNotContainsString('Reserved for a Minor Faction', $body);
+        $this->assertStringNotContainsString('Assignments appear after', $body);
+    }
+
+    #[Test]
+    public function renderedSliceTotalsIncludeTheMinorFactionHomeSystem(): void
+    {
+        $this->replaceWithMinorFactionDraft();
+        $slice = $this->testDraft->slicePool[0];
+
+        $body = $this->handleRequest(['id' => $this->testDraft->id])->getBody();
+
+        $this->assertStringContainsString('class="resources">' . $slice->totalResources . '</abbr>', $body);
+        $this->assertStringContainsString('class="influence">' . $slice->totalInfluence . '</abbr>', $body);
+    }
+
+    #[Test]
+    public function itUsesDiscordantStarsRenderTokensForMinorFactionTileAssets(): void
+    {
+        $this->replaceWithMinorFactionDraft([Edition::BASE_GAME, Edition::PROPHECY_OF_KINGS, Edition::THUNDERS_EDGE, Edition::DISCORDANT_STARS]);
+        $usedNames = array_merge(
+            array_map(static fn (Faction $faction): string => $faction->name, $this->testDraft->factionPool),
+            array_map(static fn (Slice $slice): string => $slice->minorFaction->faction->name, array_slice($this->testDraft->slicePool, 1)),
+        );
+        $discordant = array_values(array_filter(
+            Faction::all(),
+            static fn (Faction $faction): bool => $faction->minorFactionEligible
+                && str_starts_with($faction->homesystem(), 'DS_')
+                && ! in_array($faction->name, $usedNames, true),
+        ))[0];
+        $minor = MinorFaction::fromFaction($discordant);
+        $tiles = $this->testDraft->slicePool[0]->tiles;
+        $tiles[Slice::EQUIDISTANT_INDEX] = $minor->homeSystem;
+        $this->testDraft->slicePool[0] = new Slice($tiles, true, $minor);
+        app()->repository->save($this->testDraft);
+
+        $body = $this->handleRequest(['id' => $this->testDraft->id])->getBody();
+
+        $this->assertStringContainsString('/' . $discordant->homesystem() . '.png', $body);
+        $this->assertStringNotContainsString('ST_' . $discordant->homesystem() . '.png', $body);
+        $this->assertStringContainsString($discordant->name, $body);
+    }
+
+    #[Test]
+    public function disabledDraftDoesNotPublishOrRenderMinorFactionState(): void
+    {
+        $payload = $this->testDraft->toArray(false);
+        $body = $this->handleRequest(['id' => $this->testDraft->id])->getBody();
+
+        $this->assertArrayNotHasKey('minor_factions', $payload);
+        foreach ($payload['slices'] as $slice) {
+            $this->assertArrayNotHasKey('minor_faction', $slice);
+            $this->assertArrayNotHasKey('equidistant', $slice);
+        }
+        $this->assertStringNotContainsString('id="minor-factions"', $body);
+        $this->assertStringNotContainsString('minor-faction-home', $body);
         $this->assertStringContainsString('<label>Minor Factions:</label> <strong>no</strong>', $body);
     }
 
-    #[Test]
-    public function itExplainsTheEligibleReserveRequirementInTheEnabledDraftView(): void
+    /** @param Edition[]|null $factionSets */
+    private function replaceWithMinorFactionDraft(?array $factionSets = null): void
     {
-        $this->testDraft->settings->minorFactionsMode = true;
+        app()->repository->delete($this->testDraft->id);
+        $this->testDraft = (new GenerateDraft(DraftSettingsFactory::make([
+            'num_players' => 6,
+            'minorFactionsMode' => true,
+            'tileSets' => [Edition::BASE_GAME, Edition::PROPHECY_OF_KINGS, Edition::THUNDERS_EDGE],
+            'factionSets' => $factionSets ?? [Edition::BASE_GAME, Edition::PROPHECY_OF_KINGS, Edition::THUNDERS_EDGE],
+            'minimumTwoAlphaBetaWormholes' => false,
+            'minimumLegendaryPlanets' => 0,
+            'maxOneWormholePerSlice' => true,
+        ])))->handle();
         app()->repository->save($this->testDraft);
-
-        $body = $this->handleRequest(['id' => $this->testDraft->id])->getBody();
-
-        $this->assertMatchesRegularExpression('/twice (?:the )?player count/i', $body);
     }
-
-    #[Test]
-    public function itRendersEveryAssignmentInSpeakerOrderIncludingDiscordantStarsHomeTokens(): void
-    {
-        $eligible = array_values(array_filter(
-            Faction::all(),
-            static fn (Faction $faction): bool => $faction->minorFactionEligible,
-        ));
-        $discordant = array_values(array_filter(
-            $eligible,
-            static fn (Faction $faction): bool => str_starts_with($faction->homesystem(), 'DS_'),
-        ))[0];
-        $playerCount = count($this->testDraft->players);
-        $selected = array_slice(array_values(array_filter(
-            $eligible,
-            static fn (Faction $faction): bool => $faction !== $discordant,
-        )), 0, $playerCount);
-        $leftovers = [$discordant];
-        foreach ($eligible as $faction) {
-            if ($faction === $discordant || in_array($faction, $selected, true)) {
-                continue;
-            }
-            $leftovers[] = $faction;
-            if (count($leftovers) === $playerCount) {
-                break;
-            }
-        }
-
-        $this->testDraft->settings->minorFactionsMode = true;
-        $this->testDraft->factionPool = array_merge($selected, $leftovers);
-        $updatedPlayers = [];
-        foreach (array_values($this->testDraft->players) as $position => $player) {
-            $updatedPlayers[$player->id->value] = new Player(
-                $player->id,
-                $player->name,
-                $player->claimed,
-                (string) $position,
-                $selected[$position]->name,
-                $player->pickedSlice,
-                $player->team,
-            );
-        }
-        $this->testDraft->players = array_reverse($updatedPlayers, true);
-        app()->repository->save($this->testDraft);
-
-        $body = $this->handleRequest(['id' => $this->testDraft->id])->getBody();
-
-        $this->assertSame($playerCount, substr_count($body, '<tr data-position="'));
-        $this->assertStringContainsString($discordant->homesystem(), $body);
-        $previousPositionOffset = -1;
-        foreach (array_keys($leftovers) as $position) {
-            $positionOffset = strpos($body, '<tr data-position="' . $position . '">');
-            $this->assertNotFalse($positionOffset);
-            $this->assertGreaterThan($previousPositionOffset, $positionOffset);
-            $previousPositionOffset = $positionOffset;
-            $this->assertStringContainsString($leftovers[$position]->name, $body);
-            $this->assertStringContainsString($leftovers[$position]->homesystem(), $body);
-        }
-    }
-
-    /** @return array<Faction> */
-    private function completeMinorFactionPicks(bool $makeInvalid): array
-    {
-        $eligible = array_values(array_filter(
-            Faction::all(),
-            static fn (Faction $faction): bool => $faction->minorFactionEligible,
-        ));
-        $playerCount = count($this->testDraft->players);
-        $selected = array_slice($eligible, 0, $playerCount);
-        $leftovers = array_slice($eligible, $playerCount, $playerCount);
-        $this->testDraft->settings->minorFactionsMode = true;
-        $this->testDraft->factionPool = $makeInvalid ? $selected : array_merge($selected, $leftovers);
-
-        foreach (array_values($this->testDraft->players) as $position => $player) {
-            $this->testDraft->players[$player->id->value] = new Player(
-                $player->id,
-                $player->name,
-                $player->claimed,
-                (string) $position,
-                $selected[$position]->name,
-                $player->pickedSlice,
-                $player->team,
-            );
-        }
-
-        app()->repository->save($this->testDraft);
-
-        return $leftovers;
-    }
-
 }

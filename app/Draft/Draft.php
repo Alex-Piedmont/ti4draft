@@ -137,6 +137,10 @@ class Draft
 
     public function toArray($includeSecrets = false): array
     {
+        if ($this->settings->minorFactionsMode) {
+            self::validateMinorFactionState($this->slicePool, $this->factionPool, $this->settings);
+        }
+
         $data = $this->baseArray($includeSecrets);
         $data['slices'] = array_map(function (Slice $slice): array {
             $sliceData = $slice->toJson();
@@ -150,12 +154,6 @@ class Draft
 
             return $sliceData;
         }, $this->slicePool);
-        $data['minor_factions'] = (new MinorFactionAssignments(
-            $this->settings->minorFactionsMode,
-            $this->players,
-            $this->factionPool,
-        ))->toArray();
-
         return $data;
     }
 

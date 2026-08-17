@@ -1,7 +1,4 @@
-<?php
-    /** @var \App\Draft\Draft $draft */
-    $minorFactions = $draft->toArray(false)['minor_factions'];
-?>
+<?php /** @var \App\Draft\Draft $draft */ ?>
 
 <!DOCTYPE html>
 <html lang="en">
@@ -82,29 +79,23 @@
                         <?php endforeach; ?>
                     </div>
 
-                    <?php if ($minorFactions['enabled']) : ?>
-                        <section id="minor-factions" class="minor-factions-panel" data-status="<?= $minorFactions['status'] ?>">
+                    <?php if ($draft->settings->minorFactionsMode) : ?>
+                        <section id="minor-factions" class="minor-factions-panel" data-status="assigned">
                             <h3>Minor Factions</h3>
-                            <p class="help">Each speaker position receives an eligible unselected faction from this draft's original faction pool. The pool requires an eligible reserve of twice the player count. Each assigned home system replaces the reserved equidistant blue system.</p>
+                            <p class="help">Each slice has a face-up Minor Faction selected from the enabled factions that were not placed in the draftable faction pool. Its home system occupies the left second-ring position and counts toward the slice's resources, influence, and other limits.</p>
                             <div class="minor-factions-content">
-                                <?php if ($minorFactions['status'] === \App\Draft\MinorFactionAssignments::STATUS_RESOLVED) : ?>
-                                    <table class="minor-factions-assignments">
-                                        <thead><tr><th>Position</th><th>Faction</th><th>Home system</th></tr></thead>
-                                        <tbody>
-                                            <?php foreach ($minorFactions['assignments'] as $assignment) : ?>
-                                                <tr data-position="<?= $assignment['position'] ?>">
-                                                    <td><?= ordinal($assignment['position'] + 1) ?></td>
-                                                    <td><?= $assignment['faction'] ?></td>
-                                                    <td><?= $assignment['home_system'] ?></td>
-                                                </tr>
-                                            <?php endforeach; ?>
-                                        </tbody>
-                                    </table>
-                                <?php elseif ($minorFactions['status'] === \App\Draft\MinorFactionAssignments::STATUS_INVALID) : ?>
-                                    <p class="minor-factions-error">Minor Factions configuration error: <?= $minorFactions['error'] ?></p>
-                                <?php else : ?>
-                                    <p class="minor-factions-pending">Assignments appear after every faction and speaker position has been selected.</p>
-                                <?php endif; ?>
+                                <table class="minor-factions-assignments">
+                                    <thead><tr><th>Slice</th><th>Faction</th><th>Home system</th></tr></thead>
+                                    <tbody>
+                                        <?php foreach ($draft->slicePool as $sliceId => $slice) : ?>
+                                            <tr data-slice="<?= $sliceId ?>">
+                                                <td>Slice <?= $sliceId + 1 ?></td>
+                                                <td><?= htmlspecialchars($slice->minorFaction->faction->name) ?></td>
+                                                <td><?= htmlspecialchars($slice->minorFaction->faction->homesystem()) ?></td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
                             </div>
                         </section>
                     <?php endif; ?>
@@ -136,9 +127,14 @@
                                     <div class="slice-graph">
                                         <div class="wrap">
                                             <?php foreach ($slice->tiles as $i => $tile) : ?>
-                                                <?php $displayTileId = $minorFactions['enabled'] && $i === $minorFactions['equidistant_index'] ? '0' : $tile->id; ?>
-                                                <img class="tile-<?= $i ?><?= $displayTileId === '0' ? ' minor-faction-placeholder' : '' ?>" title="<?= $displayTileId === '0' ? 'Reserved for a Minor Faction' : '' ?>" src="<?= url('img/tiles/ST_' . $displayTileId . '.png') ?>" />
-                                                <img class="zoom tile-<?= $i ?><?= $displayTileId === '0' ? ' minor-faction-placeholder' : '' ?>" src="<?= url('img/tiles/ST_' . $displayTileId . '.png') ?>" />
+                                                <?php
+                                                    $isMinorFactionHome = $slice->minorFaction !== null && $i === \App\Draft\Slice::EQUIDISTANT_INDEX;
+                                                    $displayTileId = $isMinorFactionHome ? $slice->minorFaction->faction->homesystem() : $tile->id;
+                                                    $tileAsset = str_starts_with((string) $displayTileId, 'DS_') ? $displayTileId : 'ST_' . $displayTileId;
+                                                    $tileTitle = $isMinorFactionHome ? $slice->minorFaction->faction->name . ' Minor Faction' : '';
+                                                ?>
+                                                <img class="tile-<?= $i ?><?= $isMinorFactionHome ? ' minor-faction-home' : '' ?>" title="<?= htmlspecialchars($tileTitle) ?>" src="<?= url('img/tiles/' . $tileAsset . '.png') ?>" />
+                                                <img class="zoom tile-<?= $i ?><?= $isMinorFactionHome ? ' minor-faction-home' : '' ?>" title="<?= htmlspecialchars($tileTitle) ?>" src="<?= url('img/tiles/' . $tileAsset . '.png') ?>" />
                                             <?php endforeach; ?>
                                             <img class="tile-h" src="<?= url('img/tiles/ST_0.png') ?>" />
                                         </div>
@@ -146,6 +142,10 @@
 
                                     <div class="slice-info">
                                         <h4>Slice <?= $sliceId + 1 ?></h4>
+
+                                        <?php if ($slice->minorFaction !== null) : ?>
+                                            <p class="minor-faction-name"><strong>Minor Faction:</strong> <?= htmlspecialchars($slice->minorFaction->faction->name) ?></p>
+                                        <?php endif; ?>
 
                                         <div class="info">
                                             <?php foreach ($slice->specialties as $s) : ?>
