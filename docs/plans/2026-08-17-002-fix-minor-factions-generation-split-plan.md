@@ -5,7 +5,7 @@ type: fix
 source: docs/brainstorms/2026-08-17-minor-factions-generation-split-requirements.md
 depth: Deep
 test-spec: docs/plans/2026-08-17-002-fix-minor-factions-generation-split-test-spec.md
-status: Approved
+status: Completed
 ---
 
 # Plan: Correct Minor Factions Generation Split
@@ -141,7 +141,7 @@ flowchart LR
 
 ### AU-1: Model persisted per-slice Minor Faction state
 
-- [ ] **Goal:** Mode-enabled drafts save and reload an authoritative valid minor assignment on every slice and reject incomplete state.
+- [x] **Goal:** Mode-enabled drafts save and reload an authoritative valid minor assignment on every slice and reject incomplete state.
 **Requirements:** R3, R6
 **Dependencies:** None
 **Files:**
@@ -166,7 +166,7 @@ flowchart LR
 
 ### AU-2: Deterministically partition the enabled faction catalog
 
-- [ ] **Goal:** Generation returns exactly the requested draftable factions and the required disjoint eligible minor factions from enabled sources.
+- [x] **Goal:** Generation returns exactly the requested draftable factions and the required disjoint eligible minor factions from enabled sources.
 **Requirements:** R1, R2
 **Dependencies:** AU-1
 **Files:**
@@ -194,7 +194,7 @@ flowchart LR
 
 ### AU-3: Generate and regenerate complete valued slices atomically
 
-- [ ] **Goal:** Every corrected slice is generated and validated as two blue systems, two red systems, and its assigned green home, with faction/slice state saved only as a complete invariant.
+- [x] **Goal:** Every corrected slice is generated and validated as two blue systems, two red systems, and its assigned green home, with faction/slice state saved only as a complete invariant.
 **Requirements:** R1, R2, R4, R6
 **Dependencies:** AU-1, AU-2
 **Files:**
@@ -228,7 +228,7 @@ flowchart LR
 
 ### AU-4: Restore ordinary defaults and authoritative request validation
 
-- [ ] **Goal:** Minor Factions uses normal five-system constraints and the requested faction count means only draftable choices.
+- [x] **Goal:** Minor Factions uses normal five-system constraints and the requested faction count means only draftable choices.
 **Requirements:** R4, R5
 **Dependencies:** AU-3
 **Files:**
@@ -262,7 +262,7 @@ flowchart LR
 
 ### AU-5: Publish face-up per-slice state from the server
 
-- [ ] **Goal:** The draft page and public payload expose complete Minor Faction slices before the first pick from the persisted slice representation.
+- [x] **Goal:** The draft page and public payload expose complete Minor Faction slices before the first pick from the persisted slice representation.
 **Requirements:** R3, R4, R6
 **Dependencies:** AU-3
 **Files:**
@@ -287,7 +287,7 @@ flowchart LR
 
 ### AU-6: Use persisted slice tiles across maps and exports
 
-- [ ] **Goal:** Full maps, individual slices, tile gathers, and TTS strings use the same persisted home tile already present in each selected slice.
+- [x] **Goal:** Full maps, individual slices, tile gathers, and TTS strings use the same persisted home tile already present in each selected slice.
 **Requirements:** R3, R4
 **Dependencies:** AU-5
 **Files:**
@@ -313,13 +313,13 @@ flowchart LR
 
 ## Cross-Cutting Acceptance Criteria
 
-- [ ] Exact requested draftable count and exact one-minor-per-slice count are enforced.
-- [ ] Draftable and minor pools are unique, disjoint, eligible where required, and confined to enabled sources.
-- [ ] The home at index `3` / axial `(-1, 0)` is face up before picks and counted in every validation/summary.
-- [ ] Identical settings and seed reproduce draftable order, minor order, ordinary tile order, and slice pairing.
-- [ ] Generation and regeneration failures persist no partial state.
-- [ ] Mode-enabled persisted drafts require complete valid assignments and are never repaired by randomization.
-- [ ] Mode-disabled behavior and the existing snake draft remain unchanged.
+- [x] Exact requested draftable count and exact one-minor-per-slice count are enforced.
+- [x] Draftable and minor pools are unique, disjoint, eligible where required, and confined to enabled sources.
+- [x] The home at index `3` / axial `(-1, 0)` is face up before picks and counted in every validation/summary.
+- [x] Identical settings and seed reproduce draftable order, minor order, ordinary tile order, and slice pairing.
+- [x] Generation and regeneration failures persist no partial state.
+- [x] Mode-enabled persisted drafts require complete valid assignments and are never repaired by randomization.
+- [x] Mode-disabled behavior and the existing snake draft remain unchanged.
 
 ## Risks and Mitigations
 
