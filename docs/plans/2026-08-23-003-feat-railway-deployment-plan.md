@@ -155,7 +155,7 @@ Acceptance: R5
 - `sh tests/deployment/container-http-smoke.sh` -- exits 0
 
 ### AU-3: Initialize persistent volume ownership safely
-- [ ] **Goal:** The Railway process can read and write the mounted draft volume while Caddy and PHP-FPM continue handling requests as the non-root application user.
+- [x] **Goal:** The Railway process can read and write the mounted draft volume while Caddy and PHP-FPM continue handling requests as the non-root application user.
 **Requirements:** R2, R3, R4, R6
 **Dependencies:** AU-1, AU-2
 **Files:**
