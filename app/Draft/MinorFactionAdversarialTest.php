@@ -40,6 +40,7 @@ final class MinorFactionAdversarialTest extends TestCase
             'not-a-real-home-system',
             '',
             Edition::BASE_GAME,
+            'Synthetic alliance ability.',
             true,
         );
 

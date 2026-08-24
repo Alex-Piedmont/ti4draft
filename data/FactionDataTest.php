@@ -37,8 +37,34 @@ class FactionDataTest extends TestCase
         }
         $this->assertNotEmpty($factionData['name']);
         $this->assertNotEmpty($factionData['wiki']);
+        $this->assertArrayHasKey('alliance_ability', $factionData);
+        $this->assertIsString($factionData['alliance_ability']);
+        $this->assertNotSame('', trim($factionData['alliance_ability']));
         $this->assertArrayHasKey('minor_faction_eligible', $factionData);
         $this->assertIsBool($factionData['minor_faction_eligible']);
+    }
+
+    #[Test]
+    public function allAllianceAbilitiesMatchThePinnedReferenceByFactionIdentity(): void
+    {
+        $reference = json_decode(
+            file_get_contents('tests/fixtures/ti4-reference-alliance-abilities-0c2e2b66.json'),
+            true,
+        );
+
+        $this->assertSame('0c2e2b66e8ccfb38c3cc7f1fc1f5f2e82a53ecb7', $reference['source_revision']);
+
+        $expected = array_map(
+            static fn (array $entry): string => $entry['text'],
+            $reference['abilities'],
+        );
+        $actual = array_map(
+            static fn (array $faction): string => $faction['alliance_ability'],
+            self::getJsonData(),
+        );
+
+        $this->assertCount(64, $expected);
+        $this->assertSame($expected, $actual);
     }
 
     #[Test]

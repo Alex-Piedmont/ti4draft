@@ -21,6 +21,7 @@ class Faction
         public readonly string $homeSystemTileNumber,
         public readonly string $linkToWiki,
         public readonly Edition $edition,
+        public readonly string $allianceAbility,
         public readonly bool $minorFactionEligible,
     ) {
     }
@@ -31,12 +32,17 @@ class Faction
             throw new \TypeError('Faction minor_faction_eligible must be an explicit boolean');
         }
 
+        if (! array_key_exists('alliance_ability', $data) || ! is_string($data['alliance_ability']) || trim($data['alliance_ability']) === '') {
+            throw new \TypeError('Faction alliance_ability must be a non-empty string');
+        }
+
         return new self(
             $data['name'],
             $data['id'],
             $data['homesystem'],
             $data['wiki'],
             self::editionFromFactionJson($data['set']),
+            $data['alliance_ability'],
             $data['minor_faction_eligible'],
         );
     }

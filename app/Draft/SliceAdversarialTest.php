@@ -67,7 +67,15 @@ class SliceAdversarialTest extends TestCase
             'rift',
         );
         $home->tileType = TileType::GREEN;
-        $faction = new Faction('Synthetic Minor', 'synthetic', $home->id, '', Edition::BASE_GAME, true);
+        $faction = new Faction(
+            'Synthetic Minor',
+            'synthetic',
+            $home->id,
+            '',
+            Edition::BASE_GAME,
+            'Synthetic alliance ability.',
+            true,
+        );
         $minor = new MinorFaction($faction, $home);
         $otherSpecial = TileFactory::make(
             [PlanetFactory::make(['name' => 'Other', 'legendary' => 'Power'])],
