@@ -62,7 +62,40 @@ if (! function_exists('yesno')) {
 if (! function_exists('env')) {
     function env($key, $defaultValue = null)
     {
-        return $_ENV[$key] ?? $defaultValue;
+        $environmentValue = $_ENV[$key] ?? null;
+        if ($environmentValue !== null && $environmentValue !== false && $environmentValue !== '') {
+            return $environmentValue;
+        }
+
+        $processValue = getenv((string) $key);
+        if ($processValue !== false && $processValue !== '') {
+            return $processValue;
+        }
+
+        return $defaultValue;
+    }
+}
+
+if (! function_exists('public_url')) {
+    function public_url(): ?string
+    {
+        $configuredUrl = env('URL');
+        if ($configuredUrl !== null) {
+            return rtrim((string) $configuredUrl, '/') . '/';
+        }
+
+        $railwayDomain = env('RAILWAY_PUBLIC_DOMAIN');
+        if ($railwayDomain === null) {
+            return null;
+        }
+
+        $railwayDomain = (string) $railwayDomain;
+        $validDomain = filter_var($railwayDomain, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME);
+        if ($validDomain === false || $validDomain !== $railwayDomain) {
+            return null;
+        }
+
+        return 'https://' . $railwayDomain . '/';
     }
 }
 
@@ -87,7 +120,14 @@ if (! function_exists('get')) {
 if (! function_exists('url')) {
     function url($uri): string
     {
-        return env('URL', 'https://milty.shenanigans.be/') . $uri;
+        $baseUrl = public_url();
+        if ($baseUrl === null) {
+            throw new RuntimeException('No valid public URL is configured.');
+        }
+
+        $route = trim((string) $uri, '/');
+
+        return $baseUrl . $route;
     }
 }
 

@@ -110,7 +110,7 @@ Acceptance: R5
 ## Atomic Units
 
 ### AU-1: Make application configuration Railway-compatible
-- [ ] **Goal:** PHP resolves Railway runtime configuration and fails closed on invalid startup state without changing application routes or generated URLs.
+- [x] **Goal:** PHP resolves Railway runtime configuration and fails closed on invalid startup state without changing application routes or generated URLs.
 **Requirements:** R1, R3, R6
 **Dependencies:** None
 **Files:**
