@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Draft\Commands;
 
 use App\Draft\Player;
+use App\Draft\Slice;
 use App\Shared\Command;
 use App\Testing\Factories\DraftSettingsFactory;
 use App\Testing\TestCase;
 use App\TwilightImperium\AllianceTeamMode;
 use App\TwilightImperium\Edition;
-use App\Draft\Slice;
 use PHPUnit\Framework\Attributes\Test;
 
 class GenerateDraftTest extends TestCase
@@ -112,6 +112,7 @@ class GenerateDraftTest extends TestCase
         ]);
 
         $failure = null;
+
         try {
             (new GenerateDraft($settings))->handle();
         } catch (\App\Draft\Exceptions\InvalidDraftSettingsException $exception) {

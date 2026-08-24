@@ -6,11 +6,11 @@ namespace App\Draft\Commands;
 
 use App\Draft\Slice;
 use App\Shared\Command;
+use App\Testing\Factories\DraftSettingsFactory;
 use App\Testing\TestCase;
 use App\Testing\UsesTestDraft;
-use App\TwilightImperium\Faction;
-use App\Testing\Factories\DraftSettingsFactory;
 use App\TwilightImperium\Edition;
+use App\TwilightImperium\Faction;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 

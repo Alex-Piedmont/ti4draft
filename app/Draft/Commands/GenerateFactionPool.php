@@ -61,7 +61,6 @@ class GenerateFactionPool implements Command
 
     /**
      * @param array<string, Faction> $factionsFromSets
-     * @return array<Faction>
      */
     private function generateMinorFactionsPartition(array $factionsFromSets): FactionPartition
     {

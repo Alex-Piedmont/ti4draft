@@ -10,7 +10,6 @@ use App\Testing\TestCase;
 use App\Testing\TestDrafts;
 use App\TwilightImperium\Faction;
 use App\TwilightImperium\Tile;
-use App\TwilightImperium\TileType;
 use PHPUnit\Framework\Attributes\DataProviderExternal;
 use PHPUnit\Framework\Attributes\Test;
 

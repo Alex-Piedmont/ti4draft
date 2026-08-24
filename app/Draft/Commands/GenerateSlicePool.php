@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace App\Draft\Commands;
 
 use App\Draft\Exceptions\InvalidDraftSettingsException;
+use App\Draft\MinorFaction;
 use App\Draft\Settings;
 use App\Draft\Slice;
-use App\Draft\MinorFaction;
 use App\Draft\TilePool;
 use App\Shared\Command;
+use App\TwilightImperium\Faction;
 use App\TwilightImperium\Tile;
 use App\TwilightImperium\TileTier;
 use App\TwilightImperium\Wormhole;
-use App\TwilightImperium\Faction;
 
 class GenerateSlicePool implements Command
 {

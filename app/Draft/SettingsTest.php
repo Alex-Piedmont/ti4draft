@@ -482,6 +482,7 @@ class SettingsTest extends TestCase
                 'minorFactionsMode' => true,
                 'customSlices' => array_fill(0, $rowCount, ['64', '33', '42', '59', '67']),
             ]);
+
             try {
                 $settings->validate();
                 $this->fail('Mismatched custom slice count was accepted');

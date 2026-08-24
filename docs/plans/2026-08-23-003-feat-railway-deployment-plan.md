@@ -197,7 +197,7 @@ Acceptance: R5
 - `sh tests/deployment/container-image-audit.sh` -- exits 0
 
 ### AU-5: Build local Railway release-verification tooling
-- [ ] **Goal:** Automated tools verify stable public endpoints and preserve a comparable public draft snapshot across redeployment.
+- [x] **Goal:** Automated tools verify stable public endpoints and preserve a comparable public draft snapshot across redeployment.
 **Requirements:** R2, R3, R6
 **Dependencies:** AU-1, AU-2, AU-3, AU-4
 **Files:**

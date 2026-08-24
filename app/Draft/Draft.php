@@ -6,7 +6,6 @@ namespace App\Draft;
 
 use App\TwilightImperium\Faction;
 use App\TwilightImperium\Tile;
-use App\TwilightImperium\TileType;
 
 class Draft
 {
@@ -154,6 +153,7 @@ class Draft
 
             return $sliceData;
         }, $this->slicePool);
+
         return $data;
     }
 
