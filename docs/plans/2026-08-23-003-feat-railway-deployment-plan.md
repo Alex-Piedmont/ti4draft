@@ -135,7 +135,7 @@ Acceptance: R5
 - `docker compose exec -T app vendor/bin/phpunit` -- exits 0
 
 ### AU-2: Bind the production web server to Railway networking
-- [ ] **Goal:** Caddy accepts Railway traffic over plain internal HTTP on the injected port while local Docker TLS behavior remains available.
+- [x] **Goal:** Caddy accepts Railway traffic over plain internal HTTP on the injected port while local Docker TLS behavior remains available.
 **Requirements:** R1, R3
 **Dependencies:** None
 **Files:**
