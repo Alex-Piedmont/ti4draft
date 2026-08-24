@@ -159,8 +159,11 @@ Acceptance: R3, R4, R5
 - `docker compose exec -T app composer phpstan` -- exits 0
 - `docker compose exec -T app composer cs:check` -- exits 0
 - `E2E_BASE_URL=http://localhost:8080 npm run test:e2e` -- exits 0
-- Before deployment: record a currently persisted `/d/{id}` Minor Factions draft from Railway storage; after the GitHub-connected deployment succeeds, reopen that exact URL and verify its ability table and unchanged public payload.
-- After the GitHub-connected Railway deployment succeeds: `E2E_BASE_URL=https://ti4draft-production.up.railway.app npm run test:e2e` -- exits 0
+
+## Release Acceptance
+
+- Before deployment, record a currently persisted `/d/{id}` Minor Factions draft from Railway storage; after the GitHub-connected deployment succeeds, reopen that exact URL and verify its ability table and unchanged public payload.
+- After the GitHub-connected Railway deployment succeeds, run `E2E_BASE_URL=https://ti4draft-production.up.railway.app npm run test:e2e` and require exit code 0.
 
 ## Dependency Graph
 

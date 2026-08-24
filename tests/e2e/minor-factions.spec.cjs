@@ -1,4 +1,9 @@
 const {test, expect} = require('@playwright/test');
+const factions = require('../../data/factions.json');
+
+const longestAllianceAbility = Object.values(factions)
+    .map((faction) => faction.alliance_ability)
+    .sort((left, right) => right.length - left.length)[0];
 
 async function pickFirstVisible(page, category) {
     const button = page.locator(`button.draft[data-category="${category}"]:visible`).first();
@@ -61,7 +66,21 @@ test('face-up Minor Factions remain attached to slices through picks, maps, relo
     }
 
     await expect(page.locator('#minor-factions')).toHaveAttribute('data-status', 'assigned');
+    await expect(page.locator('.minor-factions-assignments thead th')).toHaveText([
+        'Slice',
+        'Faction',
+        'Alliance ability',
+    ]);
     await expect(page.locator('.minor-factions-assignments tbody tr')).toHaveCount(4);
+    const assignmentRows = page.locator('.minor-factions-assignments tbody tr');
+    for (let index = 0; index < initialSlices.length; index++) {
+        const minor = initialSlices[index].minor_faction;
+        const cells = assignmentRows.nth(index).locator('td');
+        await expect(cells.nth(1)).toHaveText(minor.name);
+        await expect(cells.nth(2)).toHaveText(factions[minor.name].alliance_ability);
+    }
+    await expect(page.locator('.minor-factions-attribution')).toContainText('TI4 Reference by Scott MK');
+    await expect(page.locator('.minor-factions-attribution')).toContainText('CC BY 4.0');
     await expect(page.locator('.slice.option .minor-faction-name')).toHaveCount(4);
     await expect(page.locator('.slice.option .slice-graph .wrap > img.tile-3.minor-faction-home:not(.zoom)')).toHaveCount(4);
     await expect(page.locator('.minor-faction-placeholder')).toHaveCount(0);
@@ -114,4 +133,12 @@ test('face-up Minor Factions remain attached to slices through picks, maps, relo
     await expect(page.locator('#minor-factions')).toHaveAttribute('data-status', 'assigned');
     await expect(page.locator('.slice.option .minor-faction-name')).toHaveCount(4);
     await expect(page.locator('.minor-faction-placeholder')).toHaveCount(0);
+
+    await page.setViewportSize({width: 390, height: 844});
+    const layoutCell = page.locator('.minor-factions-assignments tbody td').nth(2);
+    await layoutCell.evaluate((cell, ability) => {
+        cell.textContent = ability;
+    }, longestAllianceAbility);
+    await expect(layoutCell).toHaveText(longestAllianceAbility);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });

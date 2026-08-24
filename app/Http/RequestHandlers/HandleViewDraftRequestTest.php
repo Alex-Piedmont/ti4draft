@@ -50,7 +50,7 @@ class HandleViewDraftRequestTest extends RequestHandlerTestCase
     }
 
     #[Test]
-    public function itRendersFaceUpMinorFactionsAndTheirHomeSystemsBeforeAnyPicks(): void
+    public function itRendersFaceUpMinorFactionsAndTheirAllianceAbilitiesBeforeAnyPicks(): void
     {
         $this->replaceWithMinorFactionDraft();
 
@@ -58,10 +58,21 @@ class HandleViewDraftRequestTest extends RequestHandlerTestCase
 
         $this->assertStringContainsString('id="minor-factions"', $body);
         $this->assertStringContainsString('data-status="assigned"', $body);
+        $this->assertStringContainsString('<thead><tr><th>Slice</th><th>Faction</th><th>Alliance ability</th></tr></thead>', $body);
+        $this->assertStringNotContainsString('<th>Home system</th>', $body);
+        $this->assertStringContainsString('Alliance ability text from', $body);
+        $this->assertStringContainsString('>TI4 Reference</a> by Scott MK, licensed', $body);
+        $this->assertStringContainsString('>CC BY 4.0</a>; reformatted for this table.', $body);
+        $this->assertStringContainsString('https://scottmk.github.io/ti4-reference/alliances/', $body);
+        $this->assertStringContainsString('https://github.com/scottmk/ti4-reference/blob/0c2e2b66e8ccfb38c3cc7f1fc1f5f2e82a53ecb7/LICENSE', $body);
         $this->assertSame(count($this->testDraft->slicePool), substr_count($body, '<tr data-slice="'));
         foreach ($this->testDraft->slicePool as $slice) {
             $minor = $slice->minorFaction;
             $this->assertStringContainsString($minor->faction->name, $body);
+            $this->assertStringContainsString(
+                htmlspecialchars($minor->faction->allianceAbility, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                $body,
+            );
             $tileAsset = str_starts_with($minor->faction->homesystem(), 'DS_')
                 ? $minor->faction->homesystem()
                 : 'ST_' . $minor->faction->homesystem();
@@ -70,6 +81,34 @@ class HandleViewDraftRequestTest extends RequestHandlerTestCase
         }
         $this->assertStringNotContainsString('Reserved for a Minor Faction', $body);
         $this->assertStringNotContainsString('Assignments appear after', $body);
+    }
+
+    #[Test]
+    public function itEscapesAllianceAbilityTextAtTheTemplateBoundary(): void
+    {
+        $this->replaceWithMinorFactionDraft();
+        $slice = $this->testDraft->slicePool[0];
+        $original = $slice->minorFaction->faction;
+        $ability = "Captain's \"<script>window.injected = true</script>\" & Ω";
+        $faction = new Faction(
+            $original->name,
+            $original->id,
+            $original->homeSystemTileNumber,
+            $original->linkToWiki,
+            $original->edition,
+            $ability,
+            true,
+        );
+        $minor = new MinorFaction($faction, $slice->minorFaction->homeSystem);
+        $this->testDraft->slicePool[0] = new Slice($slice->tiles, true, $minor);
+
+        $body = HtmlResponse::renderTemplate('templates/draft.php', ['draft' => $this->testDraft]);
+
+        $this->assertStringContainsString(
+            htmlspecialchars($ability, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+            $body,
+        );
+        $this->assertStringNotContainsString('<script>window.injected = true</script>', $body);
     }
 
     #[Test]
@@ -123,6 +162,7 @@ class HandleViewDraftRequestTest extends RequestHandlerTestCase
             $this->assertArrayNotHasKey('equidistant', $slice);
         }
         $this->assertStringNotContainsString('id="minor-factions"', $body);
+        $this->assertStringNotContainsString('minor-factions-attribution', $body);
         $this->assertStringNotContainsString('minor-faction-home', $body);
         $this->assertStringContainsString('<label>Minor Factions:</label> <strong>no</strong>', $body);
     }

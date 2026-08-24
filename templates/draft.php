@@ -83,15 +83,16 @@
                         <section id="minor-factions" class="minor-factions-panel" data-status="assigned">
                             <h3>Minor Factions</h3>
                             <p class="help">Each slice has a face-up Minor Faction selected from the enabled factions that were not placed in the draftable faction pool. Its home system occupies the left second-ring position and counts toward the slice's resources, influence, and other limits.</p>
+                            <p class="help minor-factions-attribution">Alliance ability text from <a href="https://scottmk.github.io/ti4-reference/alliances/" target="_blank" rel="noopener">TI4 Reference</a> by Scott MK, licensed <a href="https://github.com/scottmk/ti4-reference/blob/0c2e2b66e8ccfb38c3cc7f1fc1f5f2e82a53ecb7/LICENSE" target="_blank" rel="noopener">CC BY 4.0</a>; reformatted for this table.</p>
                             <div class="minor-factions-content">
                                 <table class="minor-factions-assignments">
-                                    <thead><tr><th>Slice</th><th>Faction</th><th>Home system</th></tr></thead>
+                                    <thead><tr><th>Slice</th><th>Faction</th><th>Alliance ability</th></tr></thead>
                                     <tbody>
                                         <?php foreach ($draft->slicePool as $sliceId => $slice) : ?>
                                             <tr data-slice="<?= $sliceId ?>">
                                                 <td>Slice <?= $sliceId + 1 ?></td>
                                                 <td><?= htmlspecialchars($slice->minorFaction->faction->name) ?></td>
-                                                <td><?= htmlspecialchars($slice->minorFaction->faction->homesystem()) ?></td>
+                                                <td><?= htmlspecialchars($slice->minorFaction->faction->allianceAbility, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></td>
                                             </tr>
                                         <?php endforeach; ?>
                                     </tbody>
