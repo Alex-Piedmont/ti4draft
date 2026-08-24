@@ -5,7 +5,7 @@ type: feat
 source: Direct request
 depth: Standard
 test-spec: docs/plans/2026-08-23-003-feat-railway-deployment-test-spec.md
-status: Approved
+status: Completed
 ---
 
 # Plan: Railway Deployment with Persistent Draft Storage
@@ -221,7 +221,7 @@ Acceptance: R5
 - `node --test tests/js/*.test.cjs` -- exits 0
 
 ### AU-6: Provision and validate the isolated Railway deployment
-- [ ] **Goal:** A new Railway project exposes the application publicly and preserves a real shared draft across redeployment.
+- [x] **Goal:** A new Railway project exposes the application publicly and preserves a real shared draft across redeployment.
 **Requirements:** R1, R2, R4, R6
 **Dependencies:** AU-5
 **Files:**
@@ -234,12 +234,12 @@ Acceptance: R5
 - Project: run `railway init --name ti4draft --workspace "Alex Rudd's Projects" --json`, then `railway add --service ti4draft --json` from the nested application repository.
 - Identity gate: immediately run the status checker with `--project ti4draft --service ti4draft --environment production` before setting variables, adding a volume/domain, or deploying.
 - Variables: set `RAILWAY_DOCKERFILE_PATH=deploy/app/Dockerfile`, `STORAGE=local`, `STORAGE_PATH=/data/drafts`, `DEBUG=false`, and `VERSION` on service `ti4draft` without printing existing project secrets.
-- Storage: run `railway volume --service ti4draft add --mount-path /data/drafts --json` and record the returned volume identifier in the deployment handoff.
+- Storage: run `railway volume --service <service-id> --environment <environment-id> add --mount-path /data/drafts --json` because Railway CLI 4.30 requires UUIDs for this command, then record the returned volume identifier in the deployment handoff.
 - Networking: run `railway domain --service ti4draft --json`; use the returned Railway domain through the automatically provided `RAILWAY_PUBLIC_DOMAIN` variable.
 - Health: configure service setting `Deploy > Healthcheck Path` as `/` before the acceptance redeploy; record this one dashboard-only setting in the handoff because the CLI exposes no health-path mutation.
 - Deployment identity: before each trigger, use the wait tool's `capture` mode to store the currently newest deployment ID (or an explicit empty baseline) in a temporary state file.
 - Deployment wait: after the trigger, use `wait` mode to poll `railway deployment list --service ti4draft --limit 1 --json` every five seconds for at most 900 seconds; ignore the captured baseline deployment, require a different deployment ID, continue only when that new deployment reaches `SUCCESS`, and fail immediately on its terminal failed, crashed, cancelled, or removed state.
-- First deploy: capture the empty/current baseline, run `railway up --service ti4draft --detach`, then wait for a different successful deployment before public verification.
+- First deploy: connect the GitHub fork and release branch in the service dashboard, capture the empty/current baseline, select **Deploy**, then wait for a different successful deployment before public verification. The GitHub source avoids the CLI upload timeout caused by the repository's 108 MB tracked game-art directory.
 - Persistence gate: run HTTP smoke, Playwright, and persistence `create`; capture the current successful deployment ID; run `railway redeploy --service ti4draft --yes`; wait for a different successful deployment; then run persistence `verify` against the same state file.
 - IF deployment verification fails: inspect Railway build/runtime logs and do not report the service as ready.
 **Test Scenarios:**

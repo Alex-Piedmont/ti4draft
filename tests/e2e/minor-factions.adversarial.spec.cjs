@@ -11,8 +11,28 @@ async function generateMinorDraft(page, playerCount, sliceCount = null) {
     if (sliceCount !== null) await page.locator('#num_slices').fill(String(sliceCount));
     await page.locator('#num_factions').fill(String(playerCount));
     await page.getByRole('textbox', {name: 'Game Name'}).fill(`Minor Map ${playerCount}p ${Date.now()}`);
-    await page.getByRole('button', {name: 'Generate'}).click();
-    await expect(page).toHaveURL(/\/d\/[^?]+\?fresh=1$/);
+    const transientError = 'Selection contains no valid slices. This happens occasionally to valid configurations but it probably means that the parameters are impossible.';
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        await page.getByRole('button', {name: 'Generate'}).click();
+        const outcome = await page.waitForFunction(() => {
+            if (window.location.pathname.startsWith('/d/')
+                && new URLSearchParams(window.location.search).get('fresh') === '1') {
+                return 'success';
+            }
+            const error = document.querySelector('#error');
+            if (error && getComputedStyle(error).display !== 'none' && error.textContent.trim()) {
+                return error.textContent.trim();
+            }
+            return false;
+        });
+        const result = await outcome.jsonValue();
+        if (result === 'success') {
+            await expect(page).toHaveURL(/\/d\/[^?]+\?fresh=1$/);
+            break;
+        }
+        expect(result).toBe(transientError);
+        expect(attempt).toBeLessThan(3);
+    }
     await page.locator('#session-popup .close-popup').click();
 }
 
@@ -59,16 +79,24 @@ test('fresh browser generation succeeds for every supported player count', async
 test('regeneration reloads the browser with a new authoritative split and clears map cache', async ({page}) => {
     await generateMinorDraft(page, 3, 4);
     const before = await page.evaluate(() => window.draft.slices.map((slice) => slice.minor_faction.name));
-    await page.evaluate(() => { window.map_cached = true; });
+    const documentMarker = `before-regeneration-${Date.now()}`;
+    await page.evaluate((marker) => {
+        window.map_cached = true;
+        window.regeneration_test_document = marker;
+    }, documentMarker);
 
     await page.getByRole('link', {name: 'Regenerate', exact: true}).click();
     const response = page.waitForResponse((candidate) => (
         candidate.url().includes('/api/regenerate') && candidate.request().method() === 'POST'
     ));
-    const navigation = page.waitForNavigation();
+    const reloadedDocument = page.waitForFunction((marker) => (
+        window.regeneration_test_document !== marker
+        && Array.isArray(window.draft?.slices)
+        && window.map_cached === false
+    ), documentMarker);
     await page.getByRole('button', {name: 'Regenerate'}).click();
     expect((await response).ok()).toBe(true);
-    await navigation;
+    await reloadedDocument;
 
     const after = await page.evaluate(() => ({
         assignments: window.draft.slices.map((slice) => slice.minor_faction.name),
