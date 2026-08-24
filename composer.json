@@ -1,4 +1,8 @@
 {
+    "name": "alex-piedmont/ti4draft",
+    "description": "A shareable Twilight Imperium 4 Milty draft generator.",
+    "type": "project",
+    "license": "proprietary",
     "require": {
         "vlucas/phpdotenv": "^5.4",
         "aws/aws-sdk-php": "^3.339",

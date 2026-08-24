@@ -177,7 +177,7 @@ Acceptance: R5
 - `sh tests/deployment/container-volume-smoke.sh` -- exits 0
 
 ### AU-4: Make production builds deterministic and secret-safe
-- [ ] **Goal:** Railway builds contain pinned production dependencies and exclude workstation secrets, caches, generated reports, and local draft state.
+- [x] **Goal:** Railway builds contain pinned production dependencies and exclude workstation secrets, caches, generated reports, and local draft state.
 **Requirements:** R5
 **Dependencies:** None
 **Files:**
