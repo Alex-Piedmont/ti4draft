@@ -5,7 +5,7 @@ type: feat
 source: Direct request
 depth: Standard
 test-spec: docs/plans/2026-08-24-004-feat-minor-faction-alliance-abilities-test-spec.md
-status: Approved
+status: Completed
 ---
 
 # Plan: Minor Faction Alliance Abilities
